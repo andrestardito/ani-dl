@@ -209,8 +209,8 @@ class Merger {
     if (this.options.subtitles.length > 0) {
       for (const subObj of this.options.subtitles) {
         args.push('--track-name', `0:"${(subObj.language.language || subObj.language.name) + `${subObj.closedCaption === true ? ` ${this.options.ccTag}` : ''}`}"`);
-        args.push('--language', `0:"${subObj.language.code}"`);
-        if (this.options.defaults.sub.code === subObj.language.code) {
+        args.push('--language', `0:"${subObj.language.locale}"`);
+        if (this.options.defaults.sub.locale === subObj.language.locale) {
           args.push('--default-track 0');
         } else {
           args.push('--default-track 0:0');

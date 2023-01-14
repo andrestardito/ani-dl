@@ -25,8 +25,7 @@ export type CrunchyDownloadOptions = {
   mkvmergeOptions: string[],
   defaultSub: LanguageItem,
   defaultAudio: LanguageItem,
-  ccTag: string,
-  dlVideoOnce: boolean
+  ccTag: string
 }
 
 export type CurnchyMultiDownload = {
@@ -57,6 +56,7 @@ export type CrunchyEpMeta = {
     lang?: LanguageItem,
     playback?: string
   }[],
+  serieName?: string,
   seasonTitle: string,
   episodeNumber: string,
   episodeTitle: string,
@@ -131,6 +131,7 @@ export interface SeriesSearchItem {
   seo_title:          string;
   seo_description:    string;
   availability_notes: string;
+  audio_locale:       string;
 }
 
 export interface Links {
