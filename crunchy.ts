@@ -24,8 +24,6 @@ export type sxItem = {
   fonts: Font[]
 }
 
-// args
-
 // load req
 import { domain, api } from './modules/module.api-urls';
 import * as reqModule from './modules/module.req';
@@ -40,6 +38,10 @@ import parseSelect from './modules/module.parseSelect';
 import { AvailableFilenameVars, getDefault } from './modules/module.args';
 import { AuthData, AuthResponse, Episode, ResponseBase, SearchData, SearchResponse, SearchResponseItem } from './@types/messageHandler';
 import { ServiceClass } from './@types/serviceClassInterface';
+
+/** Esta constante se utiliza para forzar a traer la info de los episodios en latino,
+ * ya que por defecto está en ingles. */
+const locale = "es-419";
 
 export default class Crunchy implements ServiceClass {
   public cfg: yamlCfg.ConfigObject;
@@ -1710,6 +1712,7 @@ export default class Crunchy implements ServiceClass {
       '/seasons?',
       new URLSearchParams({
         'series_id': serieId,
+        'locale': locale,
         'Policy': this.cmsToken.cms.policy,
         'Signature': this.cmsToken.cms.signature,
         'Key-Pair-Id': this.cmsToken.cms.key_pair_id,
@@ -1765,6 +1768,7 @@ export default class Crunchy implements ServiceClass {
       season.id,
       '?',
       new URLSearchParams({
+        'locale': locale,
         'Policy': this.cmsToken.cms.policy,
         'Signature': this.cmsToken.cms.signature,
         'Key-Pair-Id': this.cmsToken.cms.key_pair_id,
@@ -1784,6 +1788,7 @@ export default class Crunchy implements ServiceClass {
       '/episodes?',
       new URLSearchParams({
         'season_id': season.id as string,
+        'locale': locale,
         'Policy': this.cmsToken.cms.policy,
         'Signature': this.cmsToken.cms.signature,
         'Key-Pair-Id': this.cmsToken.cms.key_pair_id,
