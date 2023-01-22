@@ -9,6 +9,7 @@ export type CrunchyDownloadOptions = {
   novids?: boolean,
   x: number,
   q: number,
+  resolution: string,
   fileName: string,
   numbers: number,
   partsize: number,

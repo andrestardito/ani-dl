@@ -1240,12 +1240,11 @@ export default class Crunchy implements ServiceClass {
             console.log(`[WARN] The requested quality of ${options.q} is greater than the maximun ${plQuality.length}.\n[WARN] Therefor the maximum will be capped at ${plQuality.length}.`);
             quality = plQuality.length;
           }
-          const selPlUrl = quality === 0 ? plSelectedList[plQuality[plQuality.length - 1].dim as string] :
-            plSelectedList[plQuality.map(a => a.dim)[quality - 1]] ? plSelectedList[plQuality.map(a => a.dim)[quality - 1]] : '';
+          const selPlUrl = quality === 0 ? plSelectedList[plQuality[plQuality.length - 1].dim as string] : plSelectedList[options.resolution];
           //console.log(`[INFO] Servers available:\n\t${plServerList.join('\n\t')}`);
           console.log(`[INFO] Available qualities:\n\t${plQuality.map((a, ind) => `[${ind+1}] ${a.str}`).join('\n\t')}`);
     
-          if(selPlUrl != ''){
+          if(selPlUrl && selPlUrl != ''){
             variables.push({
               name: 'height',
               type: 'number',
