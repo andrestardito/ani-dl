@@ -54,7 +54,9 @@ export type CrunchyEpMeta = {
   data: {
     mediaId: string,
     lang?: LanguageItem,
-    playback?: string
+    playback?: string,
+    streams?: string,
+    videoStreams?: string
   }[],
   serieName?: string,
   seasonTitle: string,

@@ -1,4 +1,4 @@
-# multi-downloader-nx (3.1.0v)
+# multi-downloader-nx (3.2.0v)
 
 If you find any bugs in this documentation or in the programm itself please report it [over on GitHub](https://github.com/anidl/multi-downloader-nx/issues).
 
@@ -109,7 +109,7 @@ Used to set the season ID to download from
 #### `-e`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
-| Both | `-e ${selection}` | `string` | `No`| `--epsisode` | `NaN` |
+| Both | `-e ${selection}` | `string` | `No`| `--episode` | `NaN` |
 
 Set the episode(s) to download from any given show.
 For multiple selection: 1-4 OR 1,2,3,4 
@@ -129,7 +129,7 @@ Select the server to use
 #### `--kstream`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--kstream ${stream}` | `number` | `No`| `-k` | [`1`, `2`, `3`, `4`, `5`, `6`, `7`] | `1`| `kstream: ` |
+| Crunchyroll | `--kstream ${stream}` | `number` | `No`| `-k` | [`1`, `2`, `3`, `4`, `5`, `6`, `7`] | `2`| `kstream: ` |
 
 Select specific stream
 #### `--hslang`

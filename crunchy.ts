@@ -800,6 +800,9 @@ export default class Crunchy implements ServiceClass {
       if(item.playback){
         epMeta.data[0].playback = item.playback;
       }
+      if(item.__links__.streams?.href){
+        epMeta.data[0].streams = item.__links__.streams.href;
+      }
       // find episode numbers
       if((but && item.playback && !doEpsFilter.isSelected([selEpId, item.id])) || (all && item.playback) || (!but && doEpsFilter.isSelected([selEpId, item.id]) && !item.isSelected && item.playback)){
         selectedMedia.push(epMeta);
@@ -887,7 +890,8 @@ export default class Crunchy implements ServiceClass {
       episodes.push({
         data: [{
           playback: episode.playback,
-          mediaId: episode.id
+          mediaId: episode.id,
+          streams: episode.__links__.streams.href
         }],
         serieName: episode.episode_metadata.series_title,
         seasonTitle: episode.episode_metadata.season_title,
@@ -981,8 +985,8 @@ export default class Crunchy implements ServiceClass {
         epMeta.episodeTitle = item.title;
         break;
       }
-      if(item.playback){
-        epMeta.data[0].playback = item.playback;
+      if(item.__links__.streams.href){
+        epMeta.data[0].streams = item.__links__.streams.href;
         selectedMedia.push(epMeta);
         item.isSelected = true;
       }
@@ -998,6 +1002,11 @@ export default class Crunchy implements ServiceClass {
     fileName: string,
     error: boolean
   } | undefined> {
+    if(!this.cmsToken.cms){
+      console.log('[ERROR] Authentication required!');
+      return;
+    }
+
     let mediaName = '...';
     let fileName;
     const variables: Variable[] = [];
@@ -1015,6 +1024,24 @@ export default class Crunchy implements ServiceClass {
     let dlFailed = false;
     
     for (const mMeta of medias.data) {
+      if(mMeta.streams) {
+        mMeta.videoStreams = [
+          domain.api_beta,
+          mMeta.streams,
+          '?',
+          new URLSearchParams({
+            streams: 'all',
+            textType: 'all',
+            'Policy': this.cmsToken.cms.policy,
+            'Signature': this.cmsToken.cms.signature,
+            'Key-Pair-Id': this.cmsToken.cms.key_pair_id,
+          }),
+        ].join('');
+        
+        // console.log(mMeta.vstreams);
+        mMeta.playback = mMeta.videoStreams;
+      }
+
       console.log(`[INFO] Requesting: [${mMeta.mediaId}] ${mediaName}`);
       const playbackReq = await this.req.getData(mMeta.playback as string);
       
@@ -1679,8 +1706,11 @@ export default class Crunchy implements ServiceClass {
         if(item.playback){
           epMeta.data[0].playback = item.playback;
         }
+        if(item.__links__.streams?.href){
+          epMeta.data[0].streams = item.__links__.streams.href;
+        }
         // find episode numbers
-        if(item.playback && ((but && !doEpsFilter.isSelected([epNum, item.id])) || (all || (doEpsFilter.isSelected([epNum, item.id])) && !but))) {
+        if((item.playback || item.__links__.streams?.href) && ((but && !doEpsFilter.isSelected([epNum, item.id])) || (all || (doEpsFilter.isSelected([epNum, item.id])) && !but))) {
           if (Object.prototype.hasOwnProperty.call(ret, key)) {
             const epMe = ret[key];
             epMe.data.push({

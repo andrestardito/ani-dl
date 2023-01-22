@@ -162,7 +162,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     service: 'both',
     type: 'string',
     usage: '${selection}',
-    alias: 'epsisode'
+    alias: 'episode'
   },
   {
     name: 'q',
@@ -197,7 +197,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Select specific stream',
     choices: [1, 2, 3, 4, 5, 6, 7],
     default: {
-      default: 1
+      default: 2
     },
     docDescribe: true,
     service: 'crunchy',
