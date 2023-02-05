@@ -2,7 +2,7 @@ import shlp from 'sei-helper';
 import got, { Headers, Method, Options, ReadError, Response } from 'got';
 import cookieFile from './module.cookieFile';
 import * as yamlCfg from './module.cfg-loader';
-import curlReq from './module.curl-req';
+//import curlReq from './module.curl-req';
 
 export type Params = {
   method?: Method,
