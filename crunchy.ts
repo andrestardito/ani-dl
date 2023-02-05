@@ -1636,7 +1636,7 @@ export default class Crunchy implements ServiceClass {
    * 
    * @param serieId id de la serie. No puede ser null.
    * 
-   * @param correctLastSeasonNumber numero correcto de la ultima temporada en CR.
+   * @param correctLastSeasonId ID correcto de la ultima temporada en CR.
    * Este parametro es necesario para los casos en el que la ultima temporada en CR
    * no coincide con la ultima temporada realmente.
    * 
@@ -1644,16 +1644,24 @@ export default class Crunchy implements ServiceClass {
    * 
    * @returns {Promise} la ultima temporada con sus episodios.
    */
-  public async getLastSeason(serieId: string, correctLastSeasonNumber: number, dubLang: string = "jpn"): Promise<{}> {
+  public async getLastSeason(serieId: string, correctLastSeasonId: string, dubLang: string = "jpn"): Promise<{}> {
     const seasons = await this.getSeasons(serieId);
-    let lastSeasonNumber = (Object.keys(seasons) as unknown as Array<number>).sort().pop();
-    if (lastSeasonNumber == undefined || lastSeasonNumber < 1) {
+    let lastSeasonCR = Object.values(seasons).sort((seasonA, seasonB) => seasonA[dubLang].season_number - seasonB[dubLang].season_number).pop();
+    if (lastSeasonCR == undefined) {
       return Promise.reject(new Error("No se pudo obtener la ultima temporada."))
     }
-    if (correctLastSeasonNumber) {
-      lastSeasonNumber = correctLastSeasonNumber;
+
+    let lastSeasonId = lastSeasonCR[dubLang].id;
+    if (correctLastSeasonId) {
+      lastSeasonId = correctLastSeasonId;
     }
-    const lastSeason = seasons[lastSeasonNumber][dubLang];
+    
+    if (!seasons[lastSeasonId]) {
+      console.log(seasons);
+      throw new Error(`No se encontro la ultima temporada (ID: ${lastSeasonId}).`);
+    }
+
+    const lastSeason = seasons[lastSeasonId][dubLang];
 
     return this.seasonToDto(lastSeason, dubLang);
   }
@@ -1709,7 +1717,38 @@ export default class Crunchy implements ServiceClass {
       throw new Error("No se pudo parsear la serie: " + serieId);
     }
 
-    return this.parseSeriesResult(serieSearch);
+    return this.filterSeasons(serieSearch);
+  }
+
+  /** Filtra la lista de temporadas segun el lenguaje. Es una copia del parseSeriesResult, pero que se basa en los ids 
+   * como keys de la temporada. Ya que CR le encanta poner temporadas duplicadas.
+   * 
+   * @param seasonsList la lista de temporadas sin procesar.
+   *
+   * @returns la lista de temporadas filtrada por el lenguaje y demas.
+   */
+  private filterSeasons (seasonsList: SeriesSearch) : Record<string, Record<string, SeriesSearchItem>> {
+    const ret: Record<string, Record<string, SeriesSearchItem>> = {};
+
+    for (const item of seasonsList.data) {
+      for (const lang of langsData.languages) {
+        if (!Object.prototype.hasOwnProperty.call(ret, item.id))
+          ret[item.id] = {};
+
+        if (item.title.includes(`(${lang.name} Dub)`) || item.title.includes(`(${lang.name})`)) {
+          ret[item.id][lang.code] = item;
+        } else if (item.is_subbed && !item.is_dubbed && lang.code == 'jpn') {
+          ret[item.id][lang.code] = item;
+        } else if (item.audio_locale == "ja-JP" && lang.code == 'jpn') {
+          // Esto if está porque en ocasiones no alcanza con el de arriba porque dejan mal configurada la temporada.
+          ret[item.id][lang.code] = item;
+        } else if (item.is_dubbed && lang.code === 'eng' && !langsData.languages.some(a => item.title.includes(`(${a.name})`) || item.title.includes(`(${a.name} Dub)`))) { // Dubbed with no more infos will be treated as eng dubs
+          ret[item.id][lang.code] = item;
+        }
+      }
+    }
+
+    return ret;
   }
 
   /** Parsea la temporada como un Dto.
@@ -1844,29 +1883,27 @@ export default class Crunchy implements ServiceClass {
   
   public parseSeriesResult (seasonsList: SeriesSearch) : Record<number, Record<string, SeriesSearchItem>> {
     const ret: Record<number, Record<string, SeriesSearchItem>> = {};
-    let i = 0;
+
     for (const item of seasonsList.data) {
-      i++;
       for (const lang of langsData.languages) {
-        //TODO: Make sure the below code is fine
         let season_number = item.season_number;
-        if (item.versions) {
-          season_number = i;
-        }
+
         if (!Object.prototype.hasOwnProperty.call(ret, season_number))
           ret[season_number] = {};
+
         if (item.title.includes(`(${lang.name} Dub)`) || item.title.includes(`(${lang.name})`)) {
           ret[season_number][lang.code] = item;
         } else if (item.is_subbed && !item.is_dubbed && lang.code == 'jpn') {
           ret[season_number][lang.code] = item;
         } else if (item.audio_locale == "ja-JP" && lang.code == 'jpn') {
           // Esto if está porque en ocasiones no alcanza con el de arriba porque dejan mal configurada la temporada.
-          ret[item.season_number][lang.code] = item;
+          ret[season_number][lang.code] = item;
         } else if (item.is_dubbed && lang.code === 'eng' && !langsData.languages.some(a => item.title.includes(`(${a.name})`) || item.title.includes(`(${a.name} Dub)`))) { // Dubbed with no more infos will be treated as eng dubs
           ret[season_number][lang.code] = item;
         }
       }
     }
+
     return ret;
   }
   
