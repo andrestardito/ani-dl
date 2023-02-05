@@ -857,18 +857,18 @@ export default class Crunchy implements ServiceClass {
    * 
    * @param serieId id de la serie. No puede ser null.
    * 
-   * @param seasonNumber numero dela temporada a descargar. No puede ser null.
+   * @param seasonId id de la temporada a descargar. No puede ser null.
    * 
    * @param options las opciones de descarga. No puede ser null.
    */
-  public async downloadSeason(serieId: string, seasonNumber: number, options: CrunchyDownloadOptions) {
-    const seasons = await this.getSeasonsBySerieId(serieId);
+  public async downloadSeason(serieId: string, seasonId: string, options: CrunchyDownloadOptions) {
+    const seasons = await this.getSeasons(serieId);
     const dubLang = options.defaultAudio.code;
-    const season = seasons[seasonNumber][dubLang];
+    const season = this.findSeasonById(seasons, seasonId, dubLang);
 
     const episodes = await this.getEpisodesBySeason(season);
     if (!episodes) {
-      throw new Error("No se pudieron obtener los episodios para el Id de la serie: " + serieId + " y temporada: " + seasonNumber);
+      throw new Error("No se pudieron obtener los episodios para el Id de la serie: " + serieId + " y id de temporada: " + seasonId);
     }
     const episodeIds = episodes.data.map(episode => episode.id);
 
@@ -1645,7 +1645,7 @@ export default class Crunchy implements ServiceClass {
    * @returns {Promise} la ultima temporada con sus episodios.
    */
   public async getLastSeason(serieId: string, correctLastSeasonNumber: number, dubLang: string = "jpn"): Promise<{}> {
-    const seasons = await this.getSeasonsBySerieId(serieId);
+    const seasons = await this.getSeasons(serieId);
     let lastSeasonNumber = (Object.keys(seasons) as unknown as Array<number>).sort().pop();
     if (lastSeasonNumber == undefined || lastSeasonNumber < 1) {
       return Promise.reject(new Error("No se pudo obtener la ultima temporada."))
@@ -1662,17 +1662,54 @@ export default class Crunchy implements ServiceClass {
    * 
    * @param serieId id de la serie. No puede ser null.
    * 
-   * @param seasonNumber numero de la temporada en CR. No puede ser null.
+   * @param seasonId id de la temporada en CR. No puede ser null.
    * 
    * @param dubLang idioma del audio. Por defecto es "jpn" (Japones). 
    * 
    * @returns {Promise} la temporada con sus episodios.
    */
-   public async getSeason(serieId: string, seasonNumber: number, dubLang: string = "jpn"): Promise<{}> {
-    const seasons = await this.getSeasonsBySerieId(serieId);
-    const season = seasons[seasonNumber][dubLang];
+   public async getSeason(serieId: string, seasonId: string, dubLang: string = "jpn"): Promise<{}> {
+    const seasons = await this.getSeasons(serieId);
+
+    const season = this.findSeasonById(seasons, seasonId, dubLang);
 
     return this.seasonToDto(season, dubLang);
+  }
+
+  /** Busca la temporada segun su id en la lista de temporadas recibidas.
+   * 
+   * @param seasons la lista de temporadas.
+   *
+   * @param seasonId el id de la temporada.
+   *
+   * @param dubLang idioma del audio.
+   *
+   * @returns la temporada que corresponde al id recibido.
+   */
+  private findSeasonById(seasons: Record<number, Record<string, SeriesSearchItem>>, seasonId: string, dubLang: string) {
+    for (const item of Object.values(seasons)) {
+      const season = item[dubLang];
+      if (season.id === seasonId) {
+        return season;
+      }
+    }
+
+    throw new Error("No se encontro la temporada con id: " + seasonId);
+  }
+
+  /** Obtiene las temporadas de una serie segun su ID.
+   * 
+   * @param serieId el id de la serie.
+   *
+   * @returns la lista de temporadas de la serie, sin los episodios.
+   */
+  public async getSeasons(serieId: string) {
+    const serieSearch = await this.parseSeriesById(serieId);
+    if (!serieSearch) {
+      throw new Error("No se pudo parsear la serie: " + serieId);
+    }
+
+    return this.parseSeriesResult(serieSearch);
   }
 
   /** Parsea la temporada como un Dto.
@@ -1720,21 +1757,6 @@ export default class Crunchy implements ServiceClass {
         };
       })
     };
-  }
-
-  /** Obtiene las temporadas de una serie segun su ID.
-   * 
-   * @param serieId el id de la serie.
-   *
-   * @returns la lista de temporadas de la serie.
-   */
-  public async getSeasonsBySerieId(serieId: string) {
-    const serieSearch = await this.parseSeriesById(serieId);
-    if (!serieSearch) {
-      throw new Error("No se pudo parsear la serie: " + serieId);
-    }
-
-    return this.parseSeriesResult(serieSearch);
   }
 
   public async downloadFromSeriesID(id: string, data: CurnchyMultiDownload) : Promise<ResponseBase<CrunchyEpMeta[]>> {
@@ -1861,7 +1883,7 @@ export default class Crunchy implements ServiceClass {
     };
 
     // seasons list
-    const seriesSeasonListReq = await this.req.getData(`${api.cms}/series/${id}/seasons?preferred_audio_language=ja-JP&locale=${locale},`, AuthHeaders);
+    const seriesSeasonListReq = await this.req.getData(`${api.cms}/series/${id}/seasons?preferred_audio_language=ja-JP&locale=${locale}`, AuthHeaders);
     if(!seriesSeasonListReq.ok || !seriesSeasonListReq.res){
       throw new Error('[ERROR] Series Request FAILED!');
     }
