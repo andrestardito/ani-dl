@@ -1720,31 +1720,24 @@ export default class Crunchy implements ServiceClass {
     return this.filterSeasons(serieSearch);
   }
 
-  /** Filtra la lista de temporadas segun el lenguaje. Es una copia del parseSeriesResult, pero que se basa en los ids 
+  /** Filtra la lista de temporadas segun el lenguaje de audio japones.
+   * Es una copia del parseSeriesResult, pero que se basa en los ids 
    * como keys de la temporada. Ya que CR le encanta poner temporadas duplicadas.
    * 
    * @param seasonsList la lista de temporadas sin procesar.
    *
-   * @returns la lista de temporadas filtrada por el lenguaje y demas.
+   * @returns la lista de temporadas filtrada por el lenguaje de audio japones.
    */
   private filterSeasons (seasonsList: SeriesSearch) : Record<string, Record<string, SeriesSearchItem>> {
     const ret: Record<string, Record<string, SeriesSearchItem>> = {};
+    const langCode = "jpn";
 
     for (const item of seasonsList.data) {
-      for (const lang of langsData.languages) {
-        if (!Object.prototype.hasOwnProperty.call(ret, item.id))
-          ret[item.id] = {};
-
-        if (item.title.includes(`(${lang.name} Dub)`) || item.title.includes(`(${lang.name})`)) {
-          ret[item.id][lang.code] = item;
-        } else if (item.is_subbed && !item.is_dubbed && lang.code == 'jpn') {
-          ret[item.id][lang.code] = item;
-        } else if (item.audio_locale == "ja-JP" && lang.code == 'jpn') {
-          // Esto if está porque en ocasiones no alcanza con el de arriba porque dejan mal configurada la temporada.
-          ret[item.id][lang.code] = item;
-        } else if (item.is_dubbed && lang.code === 'eng' && !langsData.languages.some(a => item.title.includes(`(${a.name})`) || item.title.includes(`(${a.name} Dub)`))) { // Dubbed with no more infos will be treated as eng dubs
-          ret[item.id][lang.code] = item;
-        }
+      // Si está subtitulado y no tiene doblaje, es porque el lenguaje es nativo, es decir japones.
+      // En ocasiones no alcanza porque dejan mal configurada la temporada y se verifica con el audio_locale.
+      if ((item.is_subbed && !item.is_dubbed) || item.audio_locale == "ja-JP") {
+        ret[item.id] = {};
+        ret[item.id][langCode] = item;
       }
     }
 
