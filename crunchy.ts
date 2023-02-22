@@ -828,8 +828,12 @@ export default class Crunchy implements ServiceClass {
         e: selEpId,
         image: images[Math.floor(images.length / 2)].source
       };
-      if(item.playback){
+      // Check for streams_link and update playback var if needed
+      if (item.streams_link) {
         epMeta.data[0].playback = item.streams_link;
+        if(!item.playback) {
+          item.playback = item.streams_link;
+        }
       }
       if (item.versions) {
         epMeta.data[0].versions = item.versions;
@@ -1010,6 +1014,7 @@ export default class Crunchy implements ServiceClass {
         epMeta.seasonTitle = item.episode_metadata.season_title;
         epMeta.episodeNumber = item.episode_metadata.episode;
         epMeta.episodeTitle = item.title;
+        epMeta.season = item.episode_metadata.season_number;
       } else if (item.movie_listing_metadata) {
         item.f_num = 'F:' + item.id;
         epMeta.data = [
@@ -1021,8 +1026,11 @@ export default class Crunchy implements ServiceClass {
         epMeta.episodeNumber = 'Movie';
         epMeta.episodeTitle = item.title;
       }
-      if(item.playback) {
+      if (item.streams_link) {
         epMeta.data[0].playback = item.streams_link;
+        if(!item.playback) {
+          item.playback = item.streams_link;
+        }
         selectedMedia.push(epMeta);
         item.isSelected = true;
       }
@@ -1074,7 +1082,15 @@ export default class Crunchy implements ServiceClass {
       let mediaId = mMeta.mediaId;
       if (mMeta.versions && mMeta.lang) {
         mediaId = mMeta.versions.find(a => a.audio_locale == mMeta.lang?.cr_locale)?.media_guid as string;
+        if (!mediaId) {
+          console.log('[ERROR] Selected language not found.');
+          return undefined;
+        }
       }
+
+      // If for whatever reason mediaId has a :, return the ID only
+      if (mediaId.includes(':'))
+        mediaId = mediaId.split(':')[1];
 
       let playbackReq = await this.req.getData(`${api.cms}/videos/${mediaId}/streams`, AuthHeaders);
       if(!playbackReq.ok || !playbackReq.res){
@@ -1849,8 +1865,11 @@ export default class Crunchy implements ServiceClass {
           e: epNum,
           image: images[Math.floor(images.length / 2)].source,
         };
-        if(item.playback){
+        if (item.streams_link) {
           epMeta.data[0].playback = item.streams_link;
+          if(!item.playback) {
+            item.playback = item.streams_link;
+          }
         }
         // find episode numbers
         if(item.playback && ((but && !doEpsFilter.isSelected([epNum, item.id])) || (all || (doEpsFilter.isSelected([epNum, item.id])) && !but))) {

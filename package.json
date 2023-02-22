@@ -1,7 +1,7 @@
 {
   "name": "@diworl/ani-dl",
   "short_name": "aniDL",
-  "version": "3.3.2",
+  "version": "3.3.6",
   "description": "Download videos from Funimation or Crunchyroll via cli",
   "keywords": [
     "download",
