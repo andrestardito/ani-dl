@@ -21,6 +21,7 @@ export interface CrunchyObject {
   type:                    string;
   promo_title:             string;
   movie_listing_metadata?: MovieListingMetadata;
+  movie_metadata?: MovieListingMetadata;
   playback?:               string;
   episode_metadata?:       EpisodeMetadata;
   streams_link?:           string;

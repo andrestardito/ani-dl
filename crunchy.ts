@@ -944,6 +944,24 @@ export default class Crunchy implements ServiceClass {
           e: episode.episode_metadata.episode,
           image: ''
         });
+      } else if (episode.movie_metadata) {
+        episodes.push({
+          data: [{
+            lang: langsData.languages.find(a => a.code == dubLang) as langsData.LanguageItem,
+            mediaId: "M:" + episode.id,
+
+            // Esto queda como caso de fallback para descargar.
+            playback: episode.streams_link
+          }],
+          seasonTitle: episode.title,
+          episodeNumber: "Movie",
+          episodeTitle: episode.title,
+          seasonID: "Movie",
+          season: 1,
+          showID: "Movie",
+          e: "Movie",
+          image: ''
+        });
       } else {
         console.log("No se pudo obtener la metadata para: ", episode);
       }
