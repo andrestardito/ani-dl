@@ -1317,7 +1317,10 @@ export default class Crunchy implements ServiceClass {
             console.log(`[WARN] The requested quality of ${options.q} is greater than the maximun ${plQuality.length}.\n[WARN] Therefor the maximum will be capped at ${plQuality.length}.`);
             quality = plQuality.length;
           }
-          const selPlUrl = quality === 0 ? plSelectedList[plQuality[plQuality.length - 1].dim as string] : plSelectedList[options.resolution || "1280x720"];
+
+          // Intento buscar la resolucion indicada (o por defecto 720p), sino la encuentra, se queda con la de mayor calidad disponible.
+          const selPlUrl = plSelectedList[options.resolution || "1280x720"] || plSelectedList[plQuality[plQuality.length - 1].dim as string];
+
           //console.log(`[INFO] Servers available:\n\t${plServerList.join('\n\t')}`);
           console.log(`[INFO] Available qualities:\n\t${plQuality.map((a, ind) => `[${ind+1}] ${a.str}`).join('\n\t')}`);
     
