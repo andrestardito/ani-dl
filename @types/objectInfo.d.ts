@@ -2,11 +2,12 @@
 
 export interface ObjectInfo {
   total: number;
-  data:  CrunchyObject[];
+  items:  CrunchyObject[];
   meta:  Record<unknown>;
 }
 
 export interface CrunchyObject {
+  __links__:               Links;
   channel_id:              string;
   slug:                    string;
   images:                  Images;
@@ -68,6 +69,18 @@ export interface EpisodeMetadata {
   tenant_categories?:        string[];
   upload_date:               Date;
   versions:                  EpisodeMetadataVersion[];
+}
+
+export interface Links {
+  'resource/channel':     EpisodeChannel;
+  'resource':             EpisodeChannel;
+  'episode/season':       EpisodeChannel;
+  'episode/series':       EpisodeChannel;
+  streams:                EpisodeChannel;
+}
+
+export interface EpisodeChannel {
+  href: string;
 }
 
 export interface EpisodeMetadataVersion {
