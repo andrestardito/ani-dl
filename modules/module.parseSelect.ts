@@ -1,3 +1,5 @@
+import { console } from './log';
+
 const parseSelect = (selectString: string, but = false) : {
     isSelected: (val: string|string[]) => boolean,
     values: string[]
@@ -14,7 +16,7 @@ const parseSelect = (selectString: string, but = false) : {
     if (part.includes('-')) {
       const splits = part.split('-');
       if (splits.length !== 2) {
-        console.log(`[WARN] Unable to parse input "${part}"`);
+        console.warn(`[WARN] Unable to parse input "${part}"`);
         return;
       }
 
@@ -22,14 +24,14 @@ const parseSelect = (selectString: string, but = false) : {
       const match = firstPart.match(/[A-Za-z]+/);
       if (match && match.length > 0) {
         if (match.index && match.index !== 0) {
-          console.log(`[WARN] Unable to parse input "${part}"`);
+          console.warn(`[WARN] Unable to parse input "${part}"`);
           return;
         }
         const letters = firstPart.substring(0, match[0].length);
-        const number = parseInt(firstPart.substring(match[0].length));
-        const b = parseInt(splits[1]);
+        const number = parseFloat(firstPart.substring(match[0].length));
+        const b = parseFloat(splits[1]);
         if (isNaN(number) || isNaN(b)) {
-          console.log(`[WARN] Unable to parse input "${part}"`);
+          console.warn(`[WARN] Unable to parse input "${part}"`);
           return;
         }
         for (let i = number; i <= b; i++) {
@@ -37,10 +39,10 @@ const parseSelect = (selectString: string, but = false) : {
         }
 
       } else {
-        const a = parseInt(firstPart);
-        const b = parseInt(splits[1]);
+        const a = parseFloat(firstPart);
+        const b = parseFloat(splits[1]);
         if (isNaN(a) || isNaN(b)) {
-          console.log(`[WARN] Unable to parse input "${part}"`);
+          console.warn(`[WARN] Unable to parse input "${part}"`);
           return;
         }
         for (let i = a; i <= b; i++) {
@@ -52,22 +54,25 @@ const parseSelect = (selectString: string, but = false) : {
       if (part.match(/[0-9A-Z]{9}/)) {
         select.push(part);
         return;
+      } else if (part.match(/[A-Z]{3}\.[0-9]*/)) {
+        select.push(part);
+        return;
       }
       const match = part.match(/[A-Za-z]+/);
       if (match && match.length > 0) {
         if (match.index && match.index !== 0) {
-          console.log(`[WARN] Unable to parse input "${part}"`);
+          console.warn(`[WARN] Unable to parse input "${part}"`);
           return;
         }
         const letters = part.substring(0, match[0].length);
-        const number = parseInt(part.substring(match[0].length));
+        const number = parseFloat(part.substring(match[0].length));
         if (isNaN(number)) {
-          console.log(`[WARN] Unable to parse input "${part}"`);
+          console.warn(`[WARN] Unable to parse input "${part}"`);
           return;
         }
         select.push(`${letters}${number}`);
       } else {
-        select.push(`${parseInt(part)}`);
+        select.push(`${parseFloat(part)}`);
       }
     }
   });
@@ -87,14 +92,14 @@ const parseSelect = (selectString: string, but = false) : {
             return false;
           }
           const letter = st.substring(0, match[0].length);
-          const number = parseInt(st.substring(match[0].length));
+          const number = parseFloat(st.substring(match[0].length));
           if (isNaN(number)) {
             return false;
           }
           const included = select.includes(`${letter}${number}`);
           return but ? !included : included;
         } else {
-          const included =  select.includes(`${parseInt(st)}`);
+          const included =  select.includes(`${parseFloat(st)}`);
           return but ? !included : included;
         }
       });

@@ -1,43 +1,80 @@
-import { Box, Button, Divider, LinearProgress, Skeleton, Typography } from "@mui/material";
-import React from "react";
-import useStore from "../../../hooks/useStore";
+import { Box, Button, CircularProgress, Divider, LinearProgress, Skeleton, Typography } from '@mui/material';
+import React from 'react';
+import { messageChannelContext } from '../../../provider/MessageChannel';
+import { queueContext } from '../../../provider/QueueProvider';
 
-import useDownloadManager from "../DownloadManager/DownloadManager";
+import useDownloadManager from '../DownloadManager/DownloadManager';
 
 const Queue: React.FC = () => {
-  const data = useDownloadManager();
+  const { data, current } = useDownloadManager();
+  const queue = React.useContext(queueContext);
+  const msg = React.useContext(messageChannelContext);
 
-  const [{ queue }, dispatch] = useStore();
+
+  if (!msg)
+    return <>Never</>;
+
   return data || queue.length > 0 ? <>
-    {data && <Box sx={{ mb: 1, height: 200, display: 'grid', gridTemplateColumns: '20% 1fr', gap: 1 }}>
-      <img src={data.downloadInfo.image} height='200px' width='100%' />
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr max-content' }}>
-            <Typography variant='h5' color='text.primary'>
-              {data.downloadInfo.title}
-            </Typography>
-            <Typography variant='h5' color='text.primary'>
-              Language: {data.downloadInfo.language.name}
+    {data && <>
+      <Box sx={{ height: 200, display: 'grid', gridTemplateColumns: '20% 1fr', gap: 1, mb: 1, mt: 1 }}>
+        <img src={data.downloadInfo.image} height='auto' width='100%' alt="Thumbnail" />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr max-content' }}>
+              <Typography variant='h5' color='text.primary'>
+                {data.downloadInfo.title}
+              </Typography>
+              <Typography variant='h5' color='text.primary'>
+                Language: {data.downloadInfo.language.name}
+              </Typography>
+            </Box>
+            <Typography variant='h6' color='text.primary'>
+              {data.downloadInfo.parent.title}
             </Typography>
           </Box>
-          <Typography variant='h6' color='text.primary'>
-            {data.downloadInfo.parent.title}
-          </Typography>
-        </Box>
-        <LinearProgress variant='determinate' sx={{ height: '10px' }} value={(typeof data.progress.percent === 'string' ? parseInt(data.progress.percent) : data.progress.percent)} />
-        <Box> 
-          <Typography variant="body1" color='text.primary'>
-            {data.progress.cur}MB / {(data.progress.total)}MB ({data.progress.percent}% | {formatTime(data.progress.time)} | {(data.progress.downloadSpeed / 1024 / 1024).toFixed(2)} MB/s)
-          </Typography>
+          <LinearProgress variant='determinate' sx={{ height: '10px' }} value={(typeof data.progress.percent === 'string' ? parseInt(data.progress.percent) : data.progress.percent)} />
+          <Box> 
+            <Typography variant="body1" color='text.primary'>
+              {data.progress.cur} / {(data.progress.total)} parts ({data.progress.percent}% | {formatTime(data.progress.time)} | {(data.progress.downloadSpeed / 1024 / 1024).toFixed(2)} MB/s | {(data.progress.bytes / 1024 / 1024).toFixed(2)}MB)
+            </Typography>
+          </Box>
         </Box>
       </Box>
-    </Box>}
-    {queue.length && <Divider variant="fullWidth" />}
+    </>
+    }
+    {
+      current && !data && <>
+        <Box sx={{ height: 200, display: 'grid', gridTemplateColumns: '20% 1fr', gap: 1, mb: 1, mt: 1 }}>
+          <img src={current.image} height='auto' width='100%' alt="Thumbnail" />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr max-content' }}>
+                <Typography variant='h5' color='text.primary'>
+                  {current.title}
+                </Typography>
+                <Typography variant='h5' color='text.primary'>
+                  Language: <CircularProgress variant="indeterminate" />
+                </Typography>
+              </Box>
+              <Typography variant='h6' color='text.primary'>
+                {current.parent.title}
+              </Typography>
+            </Box>
+            <LinearProgress variant='indeterminate' sx={{ height: '10px' }} />
+            <Box> 
+              <Typography variant="body1" color='text.primary'>
+                0 / ? parts (0% | X:XX | 0 MB/s | 0MB)
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </>
+    }
+    {queue.length && data && <Divider variant="fullWidth" />}
     {queue.map((queueItem, index, { length }) => {
       return <Box key={`queue_item_${index}`}>
         <Box sx={{ height: 200, display: 'grid', gridTemplateColumns: '20% 1fr', gap: 1, mb: 1, mt: 1 }}>
-          <img src={queueItem.image} height='200px' width='100%' />
+          <img src={queueItem.image} height='auto' width='100%' alt="Thumbnail" />
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 200px' }}>
@@ -57,14 +94,7 @@ const Queue: React.FC = () => {
               Quality: {queueItem.q}
             </Typography>
             <Button onClick={() => {
-              const override = [...queue];
-              dispatch({
-                type: 'queue',
-                payload: override,
-                extraInfo: {
-                  force: true
-                }
-              });
+              msg.removeFromQueue(index);
             }} sx={{ position: 'relative', left: '50%', transform: 'translateX(-50%)', width: '60%' }} variant="outlined" color="warning">
               Remove from Queue
             </Button>
@@ -84,8 +114,8 @@ const Queue: React.FC = () => {
         <Skeleton variant='text' height={'100%'} />
       </Box>
     </Box>
-  </Box>
-}
+  </Box>;
+};
 
 const formatTime = (time: number) => {
   time = Math.floor(time / 1000);
@@ -93,6 +123,6 @@ const formatTime = (time: number) => {
   time = time % 60;
 
   return `${minutes.toFixed(0).length < 2 ? `0${minutes}` : minutes}m${time.toFixed(0).length < 2 ? `0${time}` : time}s`;
-}
+};
 
 export default Queue;

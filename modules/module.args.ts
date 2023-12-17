@@ -9,7 +9,8 @@ const groups = {
   'fileName': 'Filename Template:',
   'debug': 'Debug:',
   'util': 'Utilities:',
-  'help': 'Help:'
+  'help': 'Help:',
+  'gui': 'GUI:'
 };
 
 export type AvailableFilenameVars =  'title' | 'episode' | 'showTitle' | 'season' | 'width' | 'height' | 'service'
@@ -39,7 +40,7 @@ type TAppArg<T extends boolean|string|number|unknown[], K = any> = {
     default: T|undefined,
     name?: string    
   },
-  service: 'funi'|'crunchy'|'both',
+  service: Array<'funi'|'crunchy'|'hidive'|'all'>,
   usage: string // -(-)${name} will be added for each command,
   demandOption?: true,
   transformer?: (value: T) => K
@@ -51,7 +52,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Enter authentication mode',
     type: 'boolean',
     group: 'auth',
-    service: 'both',
+    service: ['all'],
     docDescribe: 'Most of the shows on both services are only accessible if you payed for the service.'
       + '\nIn order for them to know who you are you are required to log in.'
       + '\nIf you trigger this command, you will be prompted for the username and password for the selected service',
@@ -63,7 +64,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Download all required fonts for mkv muxing',
     docDescribe: 'Crunchyroll uses a variaty of fonts for the subtitles.'
       + '\nUse this command to download all the fonts and add them to the muxed **mkv** file.',
-    service: 'crunchy',
+    service: ['crunchy'],
     type: 'boolean',
     usage: ''
   },
@@ -74,7 +75,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Search of an anime by the given string',
     type: 'string',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     usage: '${search}'
   },
   {
@@ -82,7 +83,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Search by type',
     docDescribe: 'Search only for type of anime listings (e.g. episodes, series)',
     group: 'search',
-    service: 'crunchy',
+    service: ['crunchy'],
     type: 'string',
     usage: '${type}',
     choices: [ '', 'top_results', 'series', 'movie_listing', 'episode' ],
@@ -96,7 +97,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the page number for search results',
     docDescribe: 'The output is organized in pages. Use this command to output the items for the given page',
     group: 'search',
-    service: 'crunchy',
+    service: ['crunchy', 'hidive'],
     type: 'number',
     usage: '${page}'
   },
@@ -110,7 +111,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
       default: ''
     },
     type: 'string',
-    service: 'crunchy',
+    service: ['crunchy'],
     usage: '${locale}'
   },
   {
@@ -118,7 +119,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     name: 'new',
     describe: 'Get last updated series list',
     docDescribe: true,
-    service: 'crunchy',
+    service: ['crunchy', 'hidive'],
     type: 'boolean',
     usage: '',
   },
@@ -128,7 +129,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     name: 'movie-listing',
     describe: 'Get video list by Movie Listing ID',
     docDescribe: true,
-    service: 'crunchy',
+    service: ['crunchy'],
     type: 'string',
     usage: '${ID}',
   },
@@ -139,7 +140,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Get season list by series ID',
     docDescribe: 'This command is used only for crunchyroll.'
       + '\n Requested is the ID of a show not a season.',
-    service: 'crunchy',
+    service: ['crunchy'],
     type: 'string',
     usage: '${ID}'
   },
@@ -149,7 +150,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     type: 'string',
     describe: 'Set the season ID',
     docDescribe: 'Used to set the season ID to download from',
-    service: 'both',
+    service: ['all'],
     usage: '${ID}'
   },
   {
@@ -159,10 +160,21 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     docDescribe: 'Set the episode(s) to download from any given show.'
       + '\nFor multiple selection: 1-4 OR 1,2,3,4 '
       + '\nFor special episodes: S1-4 OR S1,S2,S3,S4 where S is the special letter',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${selection}',
     alias: 'episode'
+  },
+  {
+    name: 'extid',
+    group: 'dl',
+    describe: 'Set the external id to lookup/download',
+    docDescribe: 'Set the external id to lookup/download.'
+      + '\nAllows you to download or view legacy Crunchyroll Ids ',
+    service: ['crunchy'],
+    type: 'string',
+    usage: '${selection}',
+    alias: 'externalid'
   },
   {
     name: 'q',
@@ -172,9 +184,49 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
       default: 0
     },
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'number',
     usage: '${qualityLevel}'
+  },
+  {
+    name: 'dlVideoOnce',
+    describe: 'Download only once the video with the best selected quality',
+    type: 'boolean',
+    group: 'dl',
+    service: ['crunchy'],
+    docDescribe: 'If selected, the best selected quality will be downloaded only for the first language,'
+      + '\nthen the worst video quality with the same audio quality will be downloaded for every other language.'
+      + '\nBy the later merge of the videos, no quality difference will be present.'
+      + '\nThis will speed up the download speed, if multiple languages are selected.',
+    usage: '',
+    default: {
+      default: false
+    }
+  },
+  {
+    name: 'removeBumpers',
+    describe: 'Remove bumpers from final video',
+    type: 'boolean',
+    group: 'dl',
+    service: ['hidive'],
+    docDescribe: 'If selected, it will remove the bumpers such as the hidive intro from the final file.'
+    + '\nCurrently disabling this sometimes results in bugs such as video/audio desync',
+    usage: '',
+    default: {
+      default: true
+    }
+  },
+  {
+    name: 'originalFontSize',
+    describe: 'Keep original font size',
+    type: 'boolean',
+    group: 'dl',
+    service: ['hidive'],
+    docDescribe: 'If selected, it will prefer to keep the original Font Size defined by the service.',
+    usage: '',
+    default: {
+      default: true
+    }
   },
   {
     name: 'x',
@@ -187,7 +239,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     type: 'number',
     alias: 'server',
     docDescribe: true,
-    service: 'both',
+    service: ['crunchy','funi'],
     usage: '${server}'
   },
   {
@@ -195,12 +247,12 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'dl',
     alias: 'k',
     describe: 'Select specific stream',
-    choices: [1, 2, 3, 4, 5, 6, 7],
+    choices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     default: {
-      default: 1
+      default: 2
     },
     docDescribe: true,
-    service: 'crunchy',
+    service: ['crunchy'],
     type: 'number',
     usage: '${stream}'
   },
@@ -215,7 +267,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     type: 'string',
     usage: '${hslang}',
     docDescribe: true,
-    service: 'crunchy'
+    service: ['crunchy']
   },
   {
     name: 'dlsubs',
@@ -224,7 +276,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     + `\nFuni Only: ${languages.filter(a => a.funi_locale && !a.cr_locale).map(a => a.locale).join(', ')}`
     + `\nCrunchy Only: ${languages.filter(a => a.cr_locale && !a.funi_locale).map(a => a.locale).join(', ')}`,
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'array',
     choices: subtitleLanguagesFilter,
     default: {
@@ -237,7 +289,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'dl',
     describe: 'Skip downloading videos',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -246,7 +298,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'dl',
     describe: 'Skip downloading audio',
     docDescribe: true,
-    service: 'both',
+    service: ['funi'],
     type: 'boolean',
     usage: ''
   },
@@ -255,7 +307,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'dl',
     describe: 'Skip downloading subtitles',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -270,7 +322,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     default: {
       default: [dubLanguageCodes.slice(-1)[0]]
     },
-    service: 'both',
+    service: ['all'],
     type: 'array',
     usage: '${dub1} ${dub2}',
   },
@@ -279,7 +331,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Used to download all episodes from the show',
     docDescribe: true,
     group: 'dl',
-    service: 'both',
+    service: ['all'],
     default: {
       default: false
     },
@@ -294,7 +346,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     },
     docDescribe: true,
     group: 'dl',
-    service: 'both',
+    service: ['all'],
     type: 'number',
     usage: '${fontSize}'
   },
@@ -303,7 +355,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'If selected, all available dubs will get downloaded',
     docDescribe: true,
     group: 'dl',
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -313,10 +365,22 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     type: 'number',
     describe: 'Set the timeout of all download reqests. Set in millisecods',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     usage: '${timeout}',
     default: {
       default: 15 * 1000
+    }
+  },
+  {
+    name: 'waittime',
+    group: 'dl',
+    type: 'number',
+    describe: 'Set the time the program waits between downloads. Set in millisecods',
+    docDescribe: true,
+    service: ['crunchy','hidive'],
+    usage: '${waittime}',
+    default: {
+      default: 0 * 1000
     }
   },
   {
@@ -324,7 +388,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'dl',
     describe: 'Force downloading simulcast version instead of uncut version (if available).',
     docDescribe: true,
-    service: 'funi',
+    service: ['funi', 'hidive'],
     type: 'boolean',
     usage: '',
     default: {
@@ -336,7 +400,33 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'mux',
     describe: 'Mux video into mp4',
     docDescribe: 'If selected, the output file will be an mp4 file (not recommended tho)',
-    service: 'both',
+    service: ['all'],
+    type: 'boolean',
+    usage: '',
+    default: {
+      default: false
+    }
+  },
+  {
+    name: 'keepAllVideos',
+    group: 'mux',
+    describe: 'Keeps all videos when merging instead of discarding extras',
+    docDescribe: 'If set to true, it will keep all videos in the merge process, rather than discarding the extra videos.',
+    service: ['crunchy','hidive'],
+    type: 'boolean',
+    usage: '',
+    default: {
+      default: false
+    }
+  },
+  {
+    name: 'syncTiming',
+    group: 'mux',
+    describe: 'Attempts to sync timing for multi-dub downloads EXPERIMENTAL',
+    docDescribe: 'If enabled attempts to sync timing for multi-dub downloads.'
+    + '\nNOTE: This is currently experimental and syncs audio and subtitles, though subtitles has a lot of guesswork'
+    + '\nIf you find bugs with this, please report it in the discord or github',
+    service: ['crunchy','hidive'],
     type: 'boolean',
     usage: '',
     default: {
@@ -348,7 +438,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Skip muxing video, audio and subtitles',
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -358,7 +448,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe:  `Set the filename template. Use \${variable_name} to insert variables.\nYou can also create folders by inserting a path seperator in the filename\nYou may use ${availableFilenameVars
       .map(a => `'${a}'`).join(', ')} as variables.`,
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${fileName}',
     default: {
@@ -375,7 +465,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
       default: 2
     },
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     usage: '${number}'
   },
   {
@@ -383,7 +473,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'debug',
     describe: 'Reset session cookie for testing purposes',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: '',
     default: {
@@ -395,7 +485,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'debug',
     describe: 'Debug mode (tokens may be revealed in the console output)',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: '',
     default: {
@@ -407,7 +497,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Don\'t delete subtitle, audio and video files after muxing',
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     default: {
       default: false
@@ -420,7 +510,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Show the help output',
     docDescribe: true,
     group: 'help',
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -429,9 +519,9 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the service you want to use',
     docDescribe: true,
     group: 'util',
-    service: 'both',
+    service: ['all'],
     type: 'string',
-    choices: ['funi', 'crunchy'],
+    choices: ['funi', 'crunchy', 'hidive'],
     usage: '${service}',
     default: {
       default: ''
@@ -443,7 +533,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'util',
     describe: 'Force the tool to check for updates (code version only)',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -452,7 +542,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'fonts',
     describe: 'Set the font to use in subtiles',
     docDescribe: true,
-    service: 'funi',
+    service: ['funi', 'hidive'],
     type: 'string',
     usage: '${fontName}',
   },
@@ -461,7 +551,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Download everything but the -e selection',
     docDescribe: true,
     group: 'dl',
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -470,7 +560,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Used to download all archived shows',
     group: 'dl',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -479,7 +569,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Used to add the `-s` and `--srz` to downloadArchive',
     group: 'dl',
     docDescribe: true,
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: ''
   },
@@ -488,7 +578,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Skip muxing the subtitles',
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: '',
     default: {
@@ -500,7 +590,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the amount of parts to download at once',
     docDescribe: 'Set the amount of parts to download at once\nIf you have a good connection try incresing this number to get a higher overall speed',
     group: 'dl',
-    service: 'both',
+    service: ['all'],
     type: 'number',
     usage: '${amount}',
     default: {
@@ -512,7 +602,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the username to use for the authentication. If not provided, you will be prompted for the input',
     docDescribe: true,
     group: 'auth',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${username}',
     default: {
@@ -524,7 +614,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the password to use for the authentication. If not provided, you will be prompted for the input',
     docDescribe: true,
     group: 'auth',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${password}',
     default: {
@@ -536,7 +626,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Authenticate every time the script runs. Use at your own risk.',
     docDescribe: true,
     group: 'auth',
-    service: 'both',
+    service: ['funi','crunchy'],
     type: 'boolean',
     usage: '',
     default: {
@@ -548,7 +638,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Force the program to use said muxer or don\'t mux if the given muxer is not present',
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${muxer}',
     choices: muxer,
@@ -561,7 +651,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the time the downloader waits before retrying if an error while writing the file occurs',
     docDescribe: true,
     group: 'dl',
-    service: 'both',
+    service: ['all'],
     type: 'number',
     usage: '${time in seconds}',
     default: {
@@ -573,7 +663,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Override a template variable',
     docDescribe: true,
     group: 'fileName',
-    service: 'both',
+    service: ['all'],
     type: 'array',
     usage: '"${toOverride}=\'${value}\'"',
     default: {
@@ -585,7 +675,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the video track name of the merged file',
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${title}'
   },
@@ -594,7 +684,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'If true, the tool won\'t check for updates',
     docDescribe: true,
     group: 'util',
-    service: 'both',
+    service: ['all'],
     type: 'boolean',
     usage: '',
     default: {
@@ -606,7 +696,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the default option for the \'alredy exists\' prompt',
     docDescribe: 'If a file already exists, the tool will ask you how to proceed. With this, you can answer in advance.',
     group: 'dl',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${option}',
     choices: [ 'y', 'Y', 'n', 'N', 'c', 'C' ]
@@ -616,7 +706,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the options given to mkvmerge',
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'array',
     usage: '${args}',
     default: {
@@ -632,7 +722,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Set the options given to ffmpeg',
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'array',
     usage: '${args}',
     default: {
@@ -644,7 +734,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: `Set the default audio track by language code\nPossible Values: ${languages.map(a => a.code).join(', ')}`,
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${args}',
     default: {
@@ -663,7 +753,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: `Set the default subtitle track by language code\nPossible Values: ${languages.map(a => a.code).join(', ')}`,
     docDescribe: true,
     group: 'mux',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${args}',
     default: {
@@ -682,7 +772,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Used to set the name for subtitles that contain tranlations for none verbal communication (e.g. signs)',
     docDescribe: true,
     group: 'fileName',
-    service: 'both',
+    service: ['all'],
     type: 'string',
     usage: '${tag}',
     default: {
@@ -700,10 +790,10 @@ const getDefault = <T extends boolean|string|number|unknown[]>(name: string, cfg
   if (typeof option.default === 'object') {
     if (Array.isArray(option.default))
       return option.default as T;
-    if (Object.prototype.hasOwnProperty.call(cfg, option.default.name ?? option.name)) {
-      return cfg[option.default.name ?? option.name];
+    if (Object.prototype.hasOwnProperty.call(cfg, (option.default as any).name ?? option.name)) {
+      return cfg[(option.default as any).name ?? option.name];
     } else {
-      return option.default.default as T;
+      return (option.default as any).default as T;
     }
   } else {
     return option.default as T;
@@ -718,7 +808,7 @@ const buildDefault = () => {
       if (Array.isArray(item.default)) {
         data[item.name] = item.default;
       } else {
-        data[item.default.name ?? item.name] = item.default.default;
+        data[(item.default as any).name ?? item.name] = (item.default as any).default;
       }
     } else {
       data[item.name] = item.default;

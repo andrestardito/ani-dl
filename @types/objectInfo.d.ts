@@ -21,7 +21,7 @@ export interface CrunchyObject {
   type:                    string;
   promo_title:             string;
   movie_listing_metadata?: MovieListingMetadata;
-  movie_metadata?: MovieListingMetadata;
+  movie_metadata?:         MovieMetadata;
   playback?:               string;
   episode_metadata?:       EpisodeMetadata;
   streams_link?:           string;
@@ -123,6 +123,23 @@ export interface MovieListingMetadata {
   tenant_categories:        string[];
 }
 
+export interface MovieMetadata {
+  availability_notes:        string;
+  available_offline:         boolean;
+  closed_captions_available: boolean;
+  duration_ms:               number;
+  extended_maturity_rating:  Record<unknown>;
+  is_dubbed:                 boolean;
+  is_mature:                 boolean;
+  is_premium_only:           boolean;
+  is_subbed:                 boolean;
+  mature_blocked:            boolean;
+  maturity_ratings:          string[];
+  movie_listing_id:          string;
+  movie_listing_slug_title:  string; 
+  movie_listing_title:       string;
+}
+
 export interface SeasonMetadata {
   audio_locale:             Locale;
   audio_locales:            Locale[];
@@ -166,7 +183,6 @@ export enum Locale {
   esLA = 'es-LA',
   es419 = 'es-419',
   esES = 'es-ES',
-  ptBR = 'pt-BR',
   ptBR = 'pt-BR',
   frFR = 'fr-FR',
   deDE = 'de-DE',

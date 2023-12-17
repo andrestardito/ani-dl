@@ -1,20 +1,27 @@
 import * as iso639 from 'iso-639';
+import * as yamlCfg from './module.cfg-loader';
 import { fontFamilies, fontMime } from './module.fontsData';
 import path from 'path';
 import fs from 'fs';
 import { LanguageItem } from './module.langsData';
 import { AvailableMuxer } from './module.args';
 import { exec } from './sei-helper-fixes';
+import { console } from './log';
+import ffprobe from 'ffprobe';
 
 export type MergerInput = {
   path: string,
-  lang: LanguageItem
+  lang: LanguageItem,
+  duration?: number,
+  delay?: number,
+  isPrimary?: boolean,
 }
 
 export type SubtitleInput = {
   language: LanguageItem,
   file: string,
-  closedCaption?: boolean
+  closedCaption?: boolean,
+  delay?: number
 }
 
 export type Font = keyof typeof fontFamilies;
@@ -34,6 +41,8 @@ export type MergerOptions = {
   output: string,
   videoTitle?: string,
   simul?: boolean,
+  inverseTrackOrder?: boolean,
+  keepAllVideos?: boolean,
   fonts?: ParsedFont[],
   skipSubMux?: boolean,
   options: {
@@ -55,17 +64,64 @@ class Merger {
       this.options.videoTitle = this.options.videoTitle.replace(/"/g, '\'');
   }
 
+  public async createDelays() {
+    //Don't bother scanning it if there is only 1 vna stream
+    if (this.options.videoAndAudio.length > 1) {
+      const bin = await yamlCfg.loadBinCfg();
+      const vnas = this.options.videoAndAudio;
+      //get and set durations on each videoAndAudio Stream
+      for (const [vnaIndex, vna] of vnas.entries()) {
+        const streamInfo = await ffprobe(vna.path, { path: bin.ffprobe as string });
+        const videoInfo = streamInfo.streams.filter(stream => stream.codec_type == 'video');
+        vnas[vnaIndex].duration = videoInfo[0].duration;
+      }
+      //Sort videoAndAudio streams by duration (shortest first)
+      vnas.sort((a,b) => {
+        if (!a.duration || !b.duration) return -1;
+        return a.duration - b.duration;
+      });
+      //Set Delays
+      const shortestDuration = vnas[0].duration;
+      for (const [vnaIndex, vna] of vnas.entries()) {
+        //Don't calculate the shortestDuration track
+        if (vnaIndex == 0) {
+          if (!vna.isPrimary && vna.isPrimary !== undefined) 
+            console.warn('Shortest video isn\'t primary, this might lead to problems with subtitles. Please report on github or discord if you experience issues.');
+          continue;
+        }
+        if (vna.duration && shortestDuration) {
+          //Calculate the tracks delay
+          vna.delay = Math.ceil((vna.duration-shortestDuration) * 1000) / 1000;
+          //TODO: set primary language for audio so it can be used to determine which track needs the delay
+          //The above is a problem in the event that it isn't the dub that needs the delay, but rather the sub.
+          //Alternatively: Might not work: it could be checked if there are multiple of the same video language, and if there is
+          //more than 1 of the same video language, then do the subtitle delay on CC, else normal language.
+          const subtitles = this.options.subtitles.filter(sub => sub.language.code == vna.lang.code);
+          for (const [subIndex, sub] of subtitles.entries()) {
+            if (vna.isPrimary) subtitles[subIndex].delay = vna.delay;
+            else if (sub.closedCaption) subtitles[subIndex].delay = vna.delay;
+          }
+        }
+      }
+    }
+  }
+
   public FFmpeg() : string {
-    const args = [];
-    const metaData = [];
+    const args: string[] = [];
+    const metaData: string[] = [];
 
     let index = 0;
     let audioIndex = 0;
     let hasVideo = false;
 
     for (const vid of this.options.videoAndAudio) {
+      if (vid.delay && hasVideo) {
+        args.push(
+          `-itsoffset -${Math.ceil(vid.delay*1000)}ms`
+        );
+      }
       args.push(`-i "${vid.path}"`);
-      if (!hasVideo) {
+      if (!hasVideo || this.options.keepAllVideos) {
         metaData.push(`-map ${index}:a -map ${index}:v`);
         metaData.push(`-metadata:s:a:${audioIndex} language=${vid.lang.code}`);
         metaData.push(`-metadata:s:v:${index} title="${this.options.videoTitle}"`);
@@ -79,7 +135,7 @@ class Merger {
     }
 
     for (const vid of this.options.onlyVid) {
-      if (!hasVideo) {
+      if (!hasVideo || this.options.keepAllVideos) {
         args.push(`-i "${vid.path}"`);
         metaData.push(`-map ${index} -map -${index}:a`);
         metaData.push(`-metadata:s:v:${index} title="${this.options.videoTitle}"`);
@@ -98,6 +154,11 @@ class Merger {
 
     for (const index in this.options.subtitles) {
       const sub = this.options.subtitles[index];
+      if (sub.delay) {
+        args.push(
+          `-itsoffset -${Math.ceil(sub.delay*1000)}ms`
+        );
+      }
       args.push(`-i "${sub.file}"`);
     }
 
@@ -137,7 +198,7 @@ class Merger {
   };
 
   public MkvMerge = () => {
-    const args = [];
+    const args: string[] = [];
 
     let hasVideo = false;
 
@@ -145,7 +206,7 @@ class Merger {
     args.push(...this.options.options.mkvmerge);
 
     for (const vid of this.options.onlyVid) {
-      if (!hasVideo) {
+      if (!hasVideo || this.options.keepAllVideos) {
         args.push(
           '--video-tracks 0',
           '--no-audio'
@@ -159,33 +220,40 @@ class Merger {
     }
 
     for (const vid of this.options.videoAndAudio) {
-      if (!hasVideo) {
+      const audioTrackNum = this.options.inverseTrackOrder ? '0' : '1';
+      const videoTrackNum = this.options.inverseTrackOrder ? '1' : '0';
+      if (vid.delay) {
         args.push(
-          '--video-tracks 0',
-          '--audio-tracks 1'
+          `--sync ${audioTrackNum}:-${Math.ceil(vid.delay*1000)}`
+        );
+      }
+      if (!hasVideo || this.options.keepAllVideos) {
+        args.push(
+          `--video-tracks ${videoTrackNum}`,
+          `--audio-tracks ${audioTrackNum}`
         );
         const trackName = ((this.options.videoTitle ?? vid.lang.name) + (this.options.simul ? ' [Simulcast]' : ' [Uncut]'));
         args.push('--track-name', `0:"${trackName}"`);
         //args.push('--track-name', `1:"${trackName}"`);
-        args.push(`--language 1:${vid.lang.code}`);
+        args.push(`--language ${audioTrackNum}:${vid.lang.code}`);
         if (this.options.defaults.audio.code === vid.lang.code) {
-          args.push('--default-track 1');
+          args.push(`--default-track ${audioTrackNum}`);
         } else {
-          args.push('--default-track 1:0');
+          args.push(`--default-track ${audioTrackNum}:0`);
         }
         hasVideo = true;
       } else {
         args.push(
           '--no-video',
-          '--audio-tracks 1'
+          `--audio-tracks ${audioTrackNum}`
         );
         if (this.options.defaults.audio.code === vid.lang.code) {
-          args.push('--default-track 1');
+          args.push(`--default-track ${audioTrackNum}`);
         } else {
-          args.push('--default-track 1:0');
+          args.push(`--default-track ${audioTrackNum}:0`);
         }
-        args.push('--track-name', `1:"${vid.lang.name}"`);
-        args.push(`--language 1:${vid.lang.code}`);
+        args.push('--track-name', `${audioTrackNum}:"${vid.lang.name}"`);
+        args.push(`--language ${audioTrackNum}:${vid.lang.code}`);
       }
       args.push(`"${vid.path}"`);
     }
@@ -208,9 +276,15 @@ class Merger {
 
     if (this.options.subtitles.length > 0) {
       for (const subObj of this.options.subtitles) {
+        if (subObj.delay) {
+          args.push(
+            `--sync 0:-${Math.ceil(subObj.delay*1000)}`
+          );
+        }
         args.push('--track-name', `0:"${(subObj.language.language || subObj.language.name) + `${subObj.closedCaption === true ? ` ${this.options.ccTag}` : ''}`}"`);
-        args.push('--language', `0:"${subObj.language.locale}"`);
-        if (this.options.defaults.sub.locale === subObj.language.locale) {
+        args.push('--language', `0:"${subObj.language.code}"`);
+        //TODO: look into making Closed Caption default if it's the only sub of the default language downloaded
+        if (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption) {
           args.push('--default-track 0');
         } else {
           args.push('--default-track 0:0');
@@ -224,7 +298,6 @@ class Merger {
     }
     if (this.options.fonts && this.options.fonts.length > 0) {
       for (const f of this.options.fonts) {
-        console.log(f.path);
         args.push('--attachment-name', f.name);
         args.push('--attachment-mime-type', f.mime);
         args.push('--attach-file', `"${f.path}"`);
@@ -261,9 +334,9 @@ class Merger {
         FFmpeg: bin.ffmpeg
       };
     } else if (useMP4format) {
-      console.log('[WARN] FFmpeg not found, skip muxing...');
+      console.warn('FFmpeg not found, skip muxing...');
     } else if (!bin.mkvmerge) {
-      console.log('[WARN] MKVMerge not found, skip muxing...');
+      console.warn('MKVMerge not found, skip muxing...');
     }
     return {};
   }
@@ -272,18 +345,18 @@ class Merger {
     language: LanguageItem,
     fonts: Font[]
   }[]) : ParsedFont[] {
-    let fontsNameList: Font[] = []; const fontsList = [], subsList = []; let isNstr = true;
+    let fontsNameList: Font[] = []; const fontsList: { name: string, path: string, mime: string }[] = [], subsList: string[] = []; let isNstr = true;
     for(const s of subs){
       fontsNameList.push(...s.fonts);
       subsList.push(s.language.locale);
     }
     fontsNameList = [...new Set(fontsNameList)];
     if(subsList.length > 0){
-      console.log('\n[INFO] Subtitles: %s (Total: %s)', subsList.join(', '), subsList.length);
+      console.info('\nSubtitles: %s (Total: %s)', subsList.join(', '), subsList.length);
       isNstr = false;
     }
     if(fontsNameList.length > 0){
-      console.log((isNstr ? '\n' : '') + '[INFO] Required fonts: %s (Total: %s)', fontsNameList.join(', '), fontsNameList.length);
+      console.info((isNstr ? '\n' : '') + 'Required fonts: %s (Total: %s)', fontsNameList.join(', '), fontsNameList.length);
     }
     for(const f of fontsNameList){
       const fontFiles = fontFamilies[f];
@@ -315,18 +388,18 @@ class Merger {
       break;
     }
     if (command === undefined) {
-      console.log('[WARN] Unable to merge files.');
+      console.warn('Unable to merge files.');
       return;
     }
-    console.log(`[INFO][${type}] Started merging`);
+    console.info(`[${type}] Started merging`);
     const res = exec(type, `"${bin}"`, command);
     if (!res.isOk && type === 'mkvmerge' && res.err.code === 1) {
-      console.log(`[INFO][${type}] Mkvmerge finished with at least one warning`);
+      console.info(`[${type}] Mkvmerge finished with at least one warning`);
     } else if (!res.isOk) {
-      console.log(res.err);
-      console.log(`[ERROR][${type}] Merging failed with exit code ${res.err.code}`);
+      console.error(res.err);
+      console.error(`[${type}] Merging failed with exit code ${res.err.code}`);
     } else {
-      console.log(`[INFO][${type} Done]`);
+      console.info(`[${type} Done]`);
     }
   }
 

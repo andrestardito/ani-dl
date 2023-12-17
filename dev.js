@@ -12,9 +12,9 @@ const waitForProcess = async (proc) => {
 };
 
 (async () => {
-  await waitForProcess(exec('npm run tsc test false'));
+  await waitForProcess(exec('pnpm run tsc test false'));
   for (let command of toRun) {
-    await waitForProcess(exec(`node index.js --service crunchy ${command}`, {
+    await waitForProcess(exec(`node index.js --service hidive ${command}`, {
       cwd: path.join(__dirname, 'lib')
     }));
   }

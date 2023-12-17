@@ -2,6 +2,8 @@ import path from 'path';
 import yaml from 'yaml';
 import fs from 'fs-extra';
 import { lookpath } from 'lookpath';
+import { console } from './log';
+import { GuiState } from '../@types/messageHandler';
 
 // new-cfg
 const workingDir = (process as NodeJS.Process & {
@@ -12,18 +14,26 @@ export { workingDir };
 
 const binCfgFile   = path.join(workingDir, 'config', 'bin-path');
 const dirCfgFile   = path.join(workingDir, 'config', 'dir-path');
+const guiCfgFile   = path.join(workingDir, 'config', 'gui');
 const cliCfgFile   = path.join(workingDir, 'config', 'cli-defaults');
-const sessCfgFile  = path.join(workingDir, 'config', 'session');
+const hdPflCfgFile = path.join(workingDir, 'config', 'hd_profile');
+const sessCfgFile  = {
+  funi: path.join(workingDir, 'config', 'funi_sess'),
+  cr:   path.join(workingDir, 'config', 'cr_sess'),
+  hd:   path.join(workingDir, 'config', 'hd_sess')
+};
+const stateFile    = path.join(workingDir, 'config', 'guistate');
 const tokenFile    = {
   funi: path.join(workingDir, 'config', 'funi_token'),
-  cr: path.join(workingDir, 'config', 'cr_token')
+  cr:   path.join(workingDir, 'config', 'cr_token'),
+  hd:   path.join(workingDir, 'config', 'hd_token')
 };
 
 export const ensureConfig = () => {
   if (!fs.existsSync(path.join(workingDir, 'config')))
     fs.mkdirSync(path.join(workingDir, 'config'));
   if (process.env.contentDirectory)
-    [binCfgFile, dirCfgFile, cliCfgFile].forEach(a => {
+    [binCfgFile, dirCfgFile, cliCfgFile, guiCfgFile].forEach(a => {
       if (!fs.existsSync(`${a}.yml`)) 
         fs.copyFileSync(path.join(__dirname, '..', 'config', `${path.basename(a)}.yml`), `${a}.yml`);
     });
@@ -39,11 +49,27 @@ const loadYamlCfgFile = <T extends Record<string, any>>(file: string, isSess?: b
       return yaml.parse(fs.readFileSync(file, 'utf8'));
     }
     catch(e){
-      console.log('[ERROR]', e);
+      console.error('[ERROR]', e);
       return {} as T;
     }
   }
   return {} as T;
+};
+
+export type WriteObjects = {
+  gui: GUIConfig
+}
+
+const writeYamlCfgFile = <T extends keyof WriteObjects>(file: T, data: WriteObjects[T]) => {
+  const fn = path.join(workingDir, 'config', `${file}.yml`);
+  if (fs.existsSync(fn))
+    fs.removeSync(fn);
+  fs.writeFileSync(fn, yaml.stringify(data));
+};
+
+export type GUIConfig = {
+  port: number,
+  password?: string
 };
 
 export type ConfigObject = {
@@ -55,11 +81,13 @@ export type ConfigObject = {
   },
   bin: {
     ffmpeg?: string,
-    mkvmerge?: string  
+    mkvmerge?: string,
+    ffprobe?: string
   },
   cli: {
     [key: string]: any
-  }
+  },
+  gui: GUIConfig
 }
 
 const loadCfg = () : ConfigObject => {
@@ -75,6 +103,7 @@ const loadCfg = () : ConfigObject => {
     cli: loadYamlCfgFile<{
       [key: string]: any
     }>(cliCfgFile),
+    gui: loadYamlCfgFile<GUIConfig>(guiCfgFile)
   };
   const defaultDirs = {
     fonts: '${wdir}/fonts/',
@@ -100,7 +129,7 @@ const loadCfg = () : ConfigObject => {
       fs.ensureDirSync(defaultCfg.dir.content);
     }
     catch(e){
-      console.log('[ERROR] Content directory not accessible!');
+      console.error('Content directory not accessible!');
       return defaultCfg;
     }
   }
@@ -115,8 +144,9 @@ const loadBinCfg = async () => {
   const binCfg = loadYamlCfgFile<ConfigObject['bin']>(binCfgFile);
   // binaries
   const defaultBin = {
-    ffmpeg: '${wdir}/bin/ffmpeg/ffmpeg',
-    mkvmerge: '${wdir}/bin/mkvtoolnix/mkvmerge',
+    ffmpeg: 'ffmpeg',
+    mkvmerge: 'mkvmerge',
+    ffprobe: 'ffprobe'
   };
   const keys = Object.keys(defaultBin) as (keyof typeof defaultBin)[];
   for(const dir of keys){
@@ -141,7 +171,7 @@ const loadBinCfg = async () => {
 };
 
 const loadCRSession = () => {
-  let session = loadYamlCfgFile(sessCfgFile, true);
+  let session = loadYamlCfgFile(sessCfgFile.cr, true);
   if(typeof session !== 'object' || session === null || Array.isArray(session)){
     session = {};
   }
@@ -154,13 +184,13 @@ const loadCRSession = () => {
 };
 
 const saveCRSession = (data: Record<string, unknown>) => {
-  const cfgFolder = path.dirname(sessCfgFile);
+  const cfgFolder = path.dirname(sessCfgFile.cr);
   try{
     fs.ensureDirSync(cfgFolder);
-    fs.writeFileSync(`${sessCfgFile}.yml`, yaml.stringify(data));
+    fs.writeFileSync(`${sessCfgFile.cr}.yml`, yaml.stringify(data));
   }
   catch(e){
-    console.log('[ERROR] Can\'t save session file to disk!');
+    console.error('Can\'t save session file to disk!');
   }
 };
 
@@ -179,8 +209,85 @@ const saveCRToken = (data: Record<string, unknown>) => {
     fs.writeFileSync(`${tokenFile.cr}.yml`, yaml.stringify(data));
   }
   catch(e){
-    console.log('[ERROR] Can\'t save token file to disk!');
+    console.error('Can\'t save token file to disk!');
   }
+};
+
+
+const loadHDSession = () => {
+  let session = loadYamlCfgFile(sessCfgFile.hd, true);
+  if(typeof session !== 'object' || session === null || Array.isArray(session)){
+    session = {};
+  }
+  for(const cv of Object.keys(session)){
+    if(typeof session[cv] !== 'object' || session[cv] === null || Array.isArray(session[cv])){
+      session[cv] = {};
+    }
+  }
+  return session;
+};
+
+const saveHDSession = (data: Record<string, unknown>) => {
+  const cfgFolder = path.dirname(sessCfgFile.hd);
+  try{
+    fs.ensureDirSync(cfgFolder);
+    fs.writeFileSync(`${sessCfgFile.hd}.yml`, yaml.stringify(data));
+  }
+  catch(e){
+    console.error('Can\'t save session file to disk!');
+  }
+};
+
+
+const loadHDToken = () => {
+  let token = loadYamlCfgFile(tokenFile.cr, true);
+  if(typeof token !== 'object' || token === null || Array.isArray(token)){
+    token = {};
+  }
+  return token;
+};
+
+const saveHDToken = (data: Record<string, unknown>) => {
+  const cfgFolder = path.dirname(tokenFile.hd);
+  try{
+    fs.ensureDirSync(cfgFolder);
+    fs.writeFileSync(`${tokenFile.hd}.yml`, yaml.stringify(data));
+  }
+  catch(e){
+    console.error('Can\'t save token file to disk!');
+  }
+};
+
+const saveHDProfile = (data: Record<string, unknown>) => {
+  const cfgFolder = path.dirname(hdPflCfgFile);
+  try{
+    fs.ensureDirSync(cfgFolder);
+    fs.writeFileSync(`${hdPflCfgFile}.yml`, yaml.stringify(data));
+  }
+  catch(e){
+    console.error('Can\'t save profile file to disk!');
+  }
+};
+
+const loadHDProfile = () => {
+  let profile = loadYamlCfgFile(hdPflCfgFile, true);
+  if(typeof profile !== 'object' || profile === null || Array.isArray(profile) || Object.keys(profile).length === 0){
+    profile = {
+      // base
+      ipAddress : '',
+      xNonce    : '',
+      xSignature: '',
+      // personal
+      visitId : '',
+      // profile data
+      profile: {
+        userId   : 0,
+        profileId: 0,
+        deviceId : '',
+      },
+    };
+  }
+  return profile;
 };
 
 const loadFuniToken = () => {
@@ -192,7 +299,7 @@ const loadFuniToken = () => {
     token = loadedToken.token;
   // info if token not set
   if(!token){
-    console.log('[INFO] Token not set!\n');
+    console.info('[INFO] Token not set!\n');
   }
   return token;
 };
@@ -206,11 +313,40 @@ const saveFuniToken = (data: {
     fs.writeFileSync(`${tokenFile.funi}.yml`, yaml.stringify(data));
   }
   catch(e){
-    console.log('[ERROR] Can\'t save token file to disk!');
+    console.error('Can\'t save token file to disk!');
   }
 };
 
 const cfgDir = path.join(workingDir, 'config');
+
+const getState = (): GuiState => {
+  const fn = `${stateFile}.json`;
+  if (!fs.existsSync(fn)) {
+    return {
+      'setup': false,
+      'services': {}
+    };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(fn).toString());
+  } catch(e) {
+    console.error('Invalid state file, regenerating');
+    return {
+      'setup': false,
+      'services': {}
+    };
+  }
+};
+
+const setState = (state: GuiState) => {
+  const fn = `${stateFile}.json`;
+  try {
+    fs.writeFileSync(fn, JSON.stringify(state, null, 2));
+  } catch(e) {
+    console.error('Failed to write state file.');
+  }
+};
+
 
 export {
   loadBinCfg,
@@ -218,9 +354,19 @@ export {
   loadFuniToken,
   saveFuniToken,
   saveCRSession,
+  loadCRSession,
   saveCRToken,
   loadCRToken,
-  loadCRSession,
+  saveHDSession,
+  loadHDSession,
+  saveHDToken,
+  loadHDToken,
+  saveHDProfile,
+  loadHDProfile,
+  getState,
+  setState,
+  writeYamlCfgFile,
   sessCfgFile,
+  hdPflCfgFile,
   cfgDir
 };

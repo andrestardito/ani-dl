@@ -4,18 +4,26 @@ import type { AvailableMuxer } from '../modules/module.args';
 import { LanguageItem } from '../modules/module.langsData';
 
 export interface MessageHandler {
+  name: string
   auth: (data: AuthData) => Promise<AuthResponse>;
+  version: () => Promise<string>;
   checkToken: () => Promise<CheckTokenResponse>;
   search: (data: SearchData) => Promise<SearchResponse>,
   availableDubCodes: () => Promise<string[]>,
   availableSubCodes: () => Promise<string[]>,
   handleDefault: (name: string) => Promise<any>,
-  resolveItems: (data: ResolveItemsData) => Promise<ResponseBase<QueueItem[]>>,
+  resolveItems: (data: ResolveItemsData) => Promise<boolean>,
   listEpisodes: (id: string) => Promise<EpisodeListResponse>,
-  downloadItem: (data) => void,
-  isDownloading: () => boolean,
-  writeToClipboard: (text: string) => void,
+  downloadItem: (data: QueueItem) => void,
+  isDownloading: () => Promise<boolean>,
   openFolder: (path: FolderTypes) => void,
+  openFile: (data: [FolderTypes, string]) => void,
+  openURL: (data: string) => void;
+  getQueue: () => Promise<QueueItem[]>,
+  removeFromQueue: (index: number) => void,
+  clearQueue: () => void,
+  setDownloadQueue: (data: boolean) => void,
+  getDownloadQueue: () => Promise<boolean>
 }
 
 export type FolderTypes = 'content' | 'config';
@@ -23,7 +31,6 @@ export type FolderTypes = 'content' | 'config';
 export type QueueItem = {
   title: string,
   episode: string,
-  ids: string[],
   fileName: string,
   dlsubs: string[],
   parent: {
@@ -33,13 +40,16 @@ export type QueueItem = {
   q: number,
   dubLang: string[],
   image: string
-}
+} & ResolveItemsData
 
 export type ResolveItemsData = {
   id: string,
   dubLang: string[],
   all: boolean,
   but: boolean,
+  novids: boolean,
+  noaudio: boolean
+  dlVideoOnce: boolean,
   e: string,
   fileName: string,
   q: number,
@@ -117,10 +127,11 @@ export type ProgressData = {
   cur: number,
   percent: number|string,
   time: number,
-  downloadSpeed: number
+  downloadSpeed: number,
+  bytes: number
 };
 
-export type PossibleMessanges = keyof ServiceHandler;
+export type PossibleMessages = keyof ServiceHandler;
 
 export type DownloadInfo = { 
   image: string,
@@ -135,4 +146,13 @@ export type DownloadInfo = {
 export type ExtendedProgress = {
   progress: ProgressData,
   downloadInfo: DownloadInfo
+}
+
+export type GuiState = {
+  setup: boolean,
+  services: Record<string, GuiStateService>
+}
+
+export type GuiStateService = {
+  queue: QueueItem[]
 }

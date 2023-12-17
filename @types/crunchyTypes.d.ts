@@ -15,9 +15,11 @@ export type CrunchyDownloadOptions = {
   partsize: number,
   callbackMaker?: (data: DownloadInfo) => HLSCallback,
   timeout: number,
+  waittime: number,
   fsRetryTime: number,
   dlsubs: string[],
   skipsubs: boolean,
+  nosubs?: boolean,
   mp4: boolean,
   override: string[],
   videoTitle: string,
@@ -26,7 +28,10 @@ export type CrunchyDownloadOptions = {
   mkvmergeOptions: string[],
   defaultSub: LanguageItem,
   defaultAudio: LanguageItem,
-  ccTag: string
+  ccTag: string,
+  dlVideoOnce: boolean,
+  skipmux?: boolean,
+  syncTiming: boolean,
 }
 
 export type CurnchyMultiDownload = {
@@ -39,6 +44,7 @@ export type CurnchyMultiDownload = {
 export type CrunchyMuxOptions = {
   output: string,
   skipSubMux?: boolean
+  keepAllVideos?: bolean
   novids?: boolean,
   mp4: boolean,
   forceMuxer?: 'ffmpeg'|'mkvmerge',
@@ -48,7 +54,8 @@ export type CrunchyMuxOptions = {
   mkvmergeOptions: string[],
   defaultSub: LanguageItem,
   defaultAudio: LanguageItem,
-  ccTag: string
+  ccTag: string,
+  syncTiming: boolean,
 }
 
 export type CrunchyEpMeta = {
@@ -56,9 +63,11 @@ export type CrunchyEpMeta = {
     mediaId: string,
     lang?: LanguageItem,
     playback?: string,
-    versions?: EpisodeVersion[] | null
+    versions?: EpisodeVersion[] | null,
+    isSubbed: boolean,
+    isDubbed: boolean,
   }[],
-  serieName?: string,
+  seriesTitle: string,
   seasonTitle: string,
   episodeNumber: string,
   episodeTitle: string,
@@ -72,7 +81,8 @@ export type CrunchyEpMeta = {
 export type DownloadedMedia = {
   type: 'Video',
   lang: LanguageItem,
-  path: string
+  path: string,
+  isPrimary?: boolean
 } | ({
   type: 'Subtitle',
   cc: boolean
@@ -100,6 +110,8 @@ export type ParseItem = {
   availability_notes?: string,
   identifier?: string,
   versions?: Version[] | null,
+  media_type?: string | null,
+  movie_release_year?: number | null,
 }
 
 export interface SeriesSearch {
@@ -161,7 +173,6 @@ export enum Locale {
   esLA = 'es-LA',
   es419 = 'es-419',
   esES = 'es-ES',
-  ptBR = 'pt-BR',
   ptBR = 'pt-BR',
   frFR = 'fr-FR',
   deDE = 'de-DE',

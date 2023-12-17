@@ -3,15 +3,25 @@ import fs from 'fs';
 import path from 'path';
 import { args, groups } from './module.args';
 
-const transformService = (str: 'funi'|'crunchy'|'both') => {
-  switch (str) {
-  case 'both':
-    return 'Both';
-  case 'crunchy':
-    return 'Crunchyroll';
-  case 'funi':
-    return 'Funimation';
-  }
+const transformService = (str: Array<'funi'|'crunchy'|'hidive'|'all'>) => {
+  const services: string[] = [];
+  str.forEach(function(part) {
+    switch(part) {
+    case 'funi':
+      services.push('Funimation');
+      break;
+    case 'crunchy':
+      services.push('Crunchyroll');
+      break;
+    case 'hidive':
+      services.push('Hidive');
+      break;
+    case 'all':
+      services.push('All');
+      break;
+    }
+  });
+  return services.join(', ');
 };
 
 let docs = `# ${packageJSON.name} (${packageJSON.version}v)
@@ -45,7 +55,7 @@ Object.entries(groups).forEach(([key, value]) => {
       typeof argument.default === 'object'
         ? Array.isArray(argument.default) 
           ? JSON.stringify(argument.default)
-          : argument.default.default
+          : (argument.default as any).default
         : argument.default
     }\`|` : ''}`
     + ` ${typeof argument.default === 'object' && !Array.isArray(argument.default)
