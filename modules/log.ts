@@ -16,10 +16,6 @@ const makeLogFolder = () => {
 };
 
 const makeLogger = () => {
-  const oldLog = global.console.log;
-  global.console.log = (data) => {
-    oldLog(`Unexpected use of console.log. Use the log4js logger instead. ${data}`);
-  };
   makeLogFolder();
   log4js.configure({
     appenders: {
