@@ -1,4 +1,4 @@
-# multi-downloader-nx (4.4.1v)
+# multi-downloader-nx (4.5.2v)
 
 If you find any bugs in this documentation or in the programm itself please report it [over on GitHub](https://github.com/anidl/multi-downloader-nx/issues).
 
@@ -41,6 +41,12 @@ Set the password to use for the authentication. If not provided, you will be pro
 | Funimation, Crunchyroll | `--silentAuth ` | `boolean` | `No`| `NaN` | `false`| `silentAuth: ` |
 
 Authenticate every time the script runs. Use at your own risk.
+#### `--token`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
+| --- | --- | --- | --- | --- | --- | ---| 
+| Crunchyroll | `--token ${token}` | `string` | `No`| `NaN` | `undefined`| `token: ` |
+
+Allows you to login with your token (Example on crunchy is Refresh Token/etp-rt cookie)
 ### Fonts
 #### `--dlFonts`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
@@ -77,7 +83,7 @@ The output is organized in pages. Use this command to output the items for the g
 #### `--search-locale`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--search-locale ${locale}` | `string` | `No`| `NaN` | [`''`, `en-US`, `en-IN`, `es-LA`, `es-419`, `es-ES`, `pt-BR`, `pt-PT`, `fr-FR`, `de-DE`, `ar-ME`, `ar-SA`, `it-IT`, `ru-RU`, `tr-TR`, `hi-IN`, `zh-CN`, `zh-TW`, `ko-KR`, `ca-ES`, `pl-PL`, `th-TH`, `ta-IN`, `ms-MY`] | ``| `search-locale: ` |
+| Crunchyroll | `--search-locale ${locale}` | `string` | `No`| `NaN` | [`''`, `en-US`, `en-IN`, `es-LA`, `es-419`, `es-ES`, `pt-BR`, `pt-PT`, `fr-FR`, `de-DE`, `ar-ME`, `ar-SA`, `it-IT`, `ru-RU`, `tr-TR`, `hi-IN`, `zh-CN`, `zh-TW`, `ko-KR`, `ca-ES`, `pl-PL`, `th-TH`, `ta-IN`, `ms-MY`, `vi-VN`, `id-ID`, `te-IN`] | ``| `search-locale: ` |
 
 Set the search local that will be used for searching for items.
 #### `--new`
@@ -98,8 +104,7 @@ Get video list by Movie Listing ID
 | --- | --- | --- | --- | --- | ---| 
 | Crunchyroll | `--series ${ID}` | `string` | `No`| `--srz` | `NaN` |
 
-This command is used only for crunchyroll.
- Requested is the ID of a show not a season.
+Requested is the ID of a show not a season.
 #### `-s`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
@@ -136,6 +141,27 @@ If selected, the best selected quality will be downloaded only for the first lan
 then the worst video quality with the same audio quality will be downloaded for every other language.
 By the later merge of the videos, no quality difference will be present.
 This will speed up the download speed, if multiple languages are selected.
+#### `--chapters`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
+| --- | --- | --- | --- | --- | --- | ---| 
+| Crunchyroll | `--chapters ` | `boolean` | `No`| `NaN` | `false`| `chapters: ` |
+
+Will fetch the chapters and add them into the final video.
+Currently only works with mkvmerge.
+#### `--crapi`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
+| --- | --- | --- | --- | --- | --- | --- | ---| 
+| Crunchyroll | `--crapi ` | `string` | `No`| `NaN` | [`android`, `web`] | `android`| `crapi: ` |
+
+If set to Android, it has lower quality, but Non-DRM streams,
+If set to Web, it has a higher quality adaptive stream, but everything is DRM.
+#### `--hdapi`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
+| --- | --- | --- | --- | --- | --- | --- | ---| 
+| Hidive | `--hdapi ` | `string` | `No`| `NaN` | [`old`, `new`] | `old`| `hdapi: ` |
+
+If set to Old, it has lower quality, but Non-DRM streams, but some people can't use it,
+If set to New, it has a higher quality stream, but everything is DRM.
 #### `--removeBumpers`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
@@ -158,23 +184,23 @@ Select the server to use
 #### `--kstream`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--kstream ${stream}` | `number` | `No`| `-k` | [`1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`] | `2`| `kstream: ` |
+| Crunchyroll | `--kstream ${stream}` | `number` | `No`| `-k` | [`1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`] | `5`| `kstream: ` |
 
 Select specific stream
 #### `--hslang`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--hslang ${hslang}` | `string` | `No`| `NaN` | [`none`, `en`, `en-IN`, `es-419`, `es-ES`, `pt-BR`, `pt-PT`, `fr`, `de`, `ar`, `it`, `ru`, `tr`, `hi`, `zh`, `zh-CN`, `zh-TW`, `ko`, `ca-ES`, `pl-PL`, `th-TH`, `ta-IN`, `ms-MY`, `ja`] | `none`| `hslang: ` |
+| Crunchyroll | `--hslang ${hslang}` | `string` | `No`| `NaN` | [`none`, `en`, `en-IN`, `es-419`, `es-ES`, `pt-BR`, `pt-PT`, `fr`, `de`, `ar`, `it`, `ru`, `tr`, `hi`, `zh`, `zh-CN`, `zh-TW`, `ko`, `ca-ES`, `pl-PL`, `th-TH`, `ta-IN`, `ms-MY`, `vi-VN`, `id-ID`, `te-IN`, `ja`] | `none`| `hslang: ` |
 
 Download video with specific hardsubs
 #### `--dlsubs`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| All | `--dlsubs ${sub1} ${sub2}` | `array` | `No`| `NaN` | [`all`, `none`, `en`, `en-IN`, `es-419`, `es-ES`, `pt-BR`, `pt-PT`, `fr`, `de`, `ar`, `it`, `ru`, `tr`, `hi`, `zh`, `zh-CN`, `zh-TW`, `ko`, `ca-ES`, `pl-PL`, `th-TH`, `ta-IN`, `ms-MY`, `ja`] | `all`| `dlsubs: ` |
+| All | `--dlsubs ${sub1} ${sub2}` | `array` | `No`| `NaN` | [`all`, `none`, `en`, `en-IN`, `es-419`, `es-ES`, `pt-BR`, `pt-PT`, `fr`, `de`, `ar`, `it`, `ru`, `tr`, `hi`, `zh`, `zh-CN`, `zh-TW`, `ko`, `ca-ES`, `pl-PL`, `th-TH`, `ta-IN`, `ms-MY`, `vi-VN`, `id-ID`, `te-IN`, `ja`] | `all`| `dlsubs: ` |
 
 Download subtitles by language tag (space-separated)
 Funi Only: zh
-Crunchy Only: en-IN, es-419, es-ES, pt-PT, fr, de, ar, ar, it, ru, tr, hi, zh-CN, zh-TW, ko, ca-ES, pl-PL, th-TH, ta-IN, ms-MY
+Crunchy Only: en-IN, es-419, es-ES, pt-PT, fr, de, ar, ar, it, ru, tr, hi, zh-CN, zh-TW, ko, ca-ES, pl-PL, th-TH, ta-IN, ms-MY, vi-VN, id-ID, te-IN
 #### `--novids`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
@@ -196,11 +222,11 @@ Skip downloading subtitles
 #### `--dubLang`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| All | `--dubLang ${dub1} ${dub2}` | `array` | `No`| `NaN` | [`eng`, `spa`, `spa-419`, `spa-ES`, `por`, `fra`, `deu`, `ara-ME`, `ara`, `ita`, `rus`, `tur`, `hin`, `cmn`, `zho`, `chi`, `kor`, `cat`, `pol`, `tha`, `tam`, `may`, `jpn`] | `jpn`| `dubLang: ` |
+| All | `--dubLang ${dub1} ${dub2}` | `array` | `No`| `NaN` | [`eng`, `spa`, `spa-419`, `spa-ES`, `por`, `fra`, `deu`, `ara-ME`, `ara`, `ita`, `rus`, `tur`, `hin`, `cmn`, `zho`, `chi`, `kor`, `cat`, `pol`, `tha`, `tam`, `may`, `vie`, `ind`, `tel`, `jpn`] | `jpn`| `dubLang: ` |
 
 Set the language to download: 
 Funi Only: cmn
-Crunchy Only: eng, spa-419, spa-ES, por, fra, deu, ara-ME, ara, ita, rus, tur, hin, zho, chi, kor, cat, pol, tha, tam, may
+Crunchy Only: eng, spa-419, spa-ES, por, fra, deu, ara-ME, ara, ita, rus, tur, hin, zho, chi, kor, cat, pol, tha, tam, may, vie, ind, tel
 #### `--all`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
@@ -343,14 +369,14 @@ Set the options given to ffmpeg
 | All | `--defaultAudio ${args}` | `string` | `No`| `NaN` | `eng`| `defaultAudio: ` |
 
 Set the default audio track by language code
-Possible Values: eng, eng, spa, spa-419, spa-ES, por, por, fra, deu, ara-ME, ara, ita, rus, tur, hin, cmn, zho, chi, kor, cat, pol, tha, tam, may, jpn
+Possible Values: eng, eng, spa, spa-419, spa-ES, por, por, fra, deu, ara-ME, ara, ita, rus, tur, hin, cmn, zho, chi, kor, cat, pol, tha, tam, may, vie, ind, tel, jpn
 #### `--defaultSub`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
 | All | `--defaultSub ${args}` | `string` | `No`| `NaN` | `eng`| `defaultSub: ` |
 
 Set the default subtitle track by language code
-Possible Values: eng, eng, spa, spa-419, spa-ES, por, por, fra, deu, ara-ME, ara, ita, rus, tur, hin, cmn, zho, chi, kor, cat, pol, tha, tam, may, jpn
+Possible Values: eng, eng, spa, spa-419, spa-ES, por, por, fra, deu, ara-ME, ara, ita, rus, tur, hin, cmn, zho, chi, kor, cat, pol, tha, tam, may, vie, ind, tel, jpn
 ### Filename Template
 #### `--fileName`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**

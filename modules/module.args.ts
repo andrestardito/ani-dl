@@ -138,8 +138,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     group: 'dl',
     alias: 'srz',
     describe: 'Get season list by series ID',
-    docDescribe: 'This command is used only for crunchyroll.'
-      + '\n Requested is the ID of a show not a season.',
+    docDescribe: 'Requested is the ID of a show not a season.',
     service: ['crunchy'],
     type: 'string',
     usage: '${ID}'
@@ -204,6 +203,47 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     }
   },
   {
+    name: 'chapters',
+    describe: 'Will fetch the chapters and add them into the final video',
+    type: 'boolean',
+    group: 'dl',
+    service: ['crunchy'],
+    docDescribe: 'Will fetch the chapters and add them into the final video.' 
+     + '\nCurrently only works with mkvmerge.',
+    usage: '',
+    default: {
+      default: false
+    }
+  },
+  {
+    name: 'crapi',
+    describe: 'Selects the API type for Crunchyroll',
+    type: 'string',
+    group: 'dl',
+    service: ['crunchy'],
+    docDescribe: 'If set to Android, it has lower quality, but Non-DRM streams,'
+      + '\nIf set to Web, it has a higher quality adaptive stream, but everything is DRM.',
+    usage: '',
+    choices: ['android', 'web'],
+    default: {
+      default: 'android'
+    }
+  },
+  {
+    name: 'hdapi',
+    describe: 'Selects the API type for Hidive',
+    type: 'string',
+    group: 'dl',
+    service: ['hidive'],
+    docDescribe: 'If set to Old, it has lower quality, but Non-DRM streams, but some people can\'t use it,'
+      + '\nIf set to New, it has a higher quality stream, but everything is DRM.',
+    usage: '',
+    choices: ['old', 'new'],
+    default: {
+      default: 'old'
+    }
+  },
+  {
     name: 'removeBumpers',
     describe: 'Remove bumpers from final video',
     type: 'boolean',
@@ -249,7 +289,7 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     describe: 'Select specific stream',
     choices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     default: {
-      default: 2
+      default: 5
     },
     docDescribe: true,
     service: ['crunchy'],
@@ -631,6 +671,18 @@ const args: TAppArg<boolean|number|string|unknown[]>[] = [
     usage: '',
     default: {
       default: false
+    }
+  },
+  {
+    name: 'token',
+    describe: 'Allows you to login with your token (Example on crunchy is Refresh Token/etp-rt cookie)',
+    docDescribe: true,
+    group: 'auth',
+    service: ['crunchy'],
+    type: 'string',
+    usage: '${token}',
+    default: {
+      default: undefined
     }
   },
   {

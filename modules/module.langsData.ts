@@ -3,6 +3,7 @@
 export type LanguageItem = {
   cr_locale?: string,
   hd_locale?: string,
+  new_hd_locale?: string,
   locale: string,
   code: string,
   name: string,
@@ -13,12 +14,12 @@ export type LanguageItem = {
 }
 
 const languages: LanguageItem[] = [
-  { cr_locale: 'en-US', hd_locale: 'English', funi_locale: 'enUS', locale: 'en', code: 'eng', name: 'English' },
+  { cr_locale: 'en-US', new_hd_locale: 'en-US', hd_locale: 'English', funi_locale: 'enUS', locale: 'en', code: 'eng', name: 'English' },
   { cr_locale: 'en-IN', locale: 'en-IN', code: 'eng', name: 'English (India)', },
-  { cr_locale: 'es-LA', hd_locale: 'Spanish LatAm', funi_name: 'Spanish (LAS)', funi_name_lagacy: 'Spanish (Latin Am)', funi_locale: 'esLA', locale: 'es-419', code: 'spa', name: 'Spanish', language: 'Latin American Spanish' },
+  { cr_locale: 'es-LA', new_hd_locale: 'es-MX', hd_locale: 'Spanish LatAm', funi_name: 'Spanish (LAS)', funi_name_lagacy: 'Spanish (Latin Am)', funi_locale: 'esLA', locale: 'es-419', code: 'spa', name: 'Spanish', language: 'Latin American Spanish' },
   { cr_locale: 'es-419',hd_locale: 'Spanish', locale: 'es-419', code: 'spa-419', name: 'Spanish', language: 'Latin American Spanish' },
   { cr_locale: 'es-ES', hd_locale: 'Spanish Europe', locale: 'es-ES', code: 'spa-ES', name: 'Castilian', language: 'European Spanish' },
-  { cr_locale: 'pt-BR', hd_locale: 'Portuguese', funi_name: 'Portuguese (Brazil)', funi_locale: 'ptBR', locale: 'pt-BR', code: 'por', name: 'Portuguese', language: 'Brazilian Portuguese' },
+  { cr_locale: 'pt-BR', new_hd_locale: 'pt-BR', hd_locale: 'Portuguese', funi_name: 'Portuguese (Brazil)', funi_locale: 'ptBR', locale: 'pt-BR', code: 'por', name: 'Portuguese', language: 'Brazilian Portuguese' },
   { cr_locale: 'pt-PT', locale: 'pt-PT', code: 'por', name: 'Portuguese (Portugal)', language: 'Portugues (Portugal)' },
   { cr_locale: 'fr-FR', hd_locale: 'French', locale: 'fr', code: 'fra', name: 'French' },
   { cr_locale: 'de-DE', hd_locale: 'German', locale: 'de', code: 'deu', name: 'German' },
@@ -34,9 +35,12 @@ const languages: LanguageItem[] = [
   { cr_locale: 'ko-KR', hd_locale: 'Korean', locale: 'ko', code: 'kor', name: 'Korean' },
   { cr_locale: 'ca-ES', locale: 'ca-ES', code: 'cat', name: 'Catalan' },
   { cr_locale: 'pl-PL', locale: 'pl-PL', code: 'pol', name: 'Polish' },
-  { cr_locale: 'th-TH', locale: 'th-TH', code: 'tha', name: 'Thai' },
-  { cr_locale: 'ta-IN', locale: 'ta-IN', code: 'tam', name: 'Tamil (India)' },
-  { cr_locale: 'ms-MY', locale: 'ms-MY', code: 'may', name: 'Malay (Malaysia)' },
+  { cr_locale: 'th-TH', locale: 'th-TH', code: 'tha', name: 'Thai', language: 'ไทย' },
+  { cr_locale: 'ta-IN', locale: 'ta-IN', code: 'tam', name: 'Tamil (India)', language: 'தமிழ்' },
+  { cr_locale: 'ms-MY', locale: 'ms-MY', code: 'may', name: 'Malay (Malaysia)', language: 'Bahasa Melayu' },
+  { cr_locale: 'vi-VN', locale: 'vi-VN', code: 'vie', name: 'Vietnamese', language: 'Tiếng Việt' },
+  { cr_locale: 'id-ID', locale: 'id-ID', code: 'ind', name: 'Indonesian', language: 'Bahasa Indonesia' },
+  { cr_locale: 'te-IN', locale: 'te-IN', code: 'tel', name: 'Telugu (India)', language: 'తెలుగు' },
   { cr_locale: 'ja-JP', hd_locale: 'Japanese', funi_locale: 'jaJP', locale: 'ja', code: 'jpn', name: 'Japanese' },
 ];
 
@@ -139,9 +143,9 @@ const sortTags = (data: string[]) => {
   return sort.map(e => e.locale as string);
 };
 
-const subsFile = (fnOutput:string, subsIndex: string, langItem: LanguageItem, isCC: boolean, ccTag: string) => {
+const subsFile = (fnOutput:string, subsIndex: string, langItem: LanguageItem, isCC: boolean, ccTag: string, isSigns?: boolean, format?: string) => {
   subsIndex = (parseInt(subsIndex) + 1).toString().padStart(2, '0');
-  return `${fnOutput}.${subsIndex}.${langItem.code}.${langItem.language}${isCC ? `.${ccTag}` : ''}.ass`;
+  return `${fnOutput}.${subsIndex}.${langItem.code}.${langItem.language}${isCC ? `.${ccTag}` : ''}${isSigns ? '.signs' : ''}.${format ? format : 'ass'}`;
 };
 
 // construct dub langs const
