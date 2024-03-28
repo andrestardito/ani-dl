@@ -36,6 +36,7 @@ export type CrunchyDownloadOptions = {
   nocleanup: boolean,
   chapters: boolean,
   fontName: string | undefined,
+  originalFontSize: boolean,
   fontSize: number,
   dubLang: string[],
 }
@@ -44,7 +45,8 @@ export type CrunchyMultiDownload = {
   dubLang: string[],
   all?: boolean,
   but?: boolean,
-  e?: string
+  e?: string,
+  s?: string
 }
 
 export type CrunchyMuxOptions = {

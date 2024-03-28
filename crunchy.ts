@@ -42,6 +42,7 @@ import { CrunchyAndroidEpisodes, CrunchyAndroidEpisode } from './@types/crunchyA
 import { parse } from './modules/module.transform-mpd';
 import { CrunchyAndroidObject } from './@types/crunchyAndroidObject';
 import { CrunchyChapters, CrunchyChapter, CrunchyOldChapter } from './@types/crunchyChapters';
+import vtt2ass from './modules/module.vtt2ass';
 
 export type sxItem = {
   language: langsData.LanguageItem,
@@ -1284,7 +1285,7 @@ export default class Crunchy implements ServiceClass {
             chapters.sort((a, b) => a.start - b.start);
             //Loop through all the chapters
             for (const chapter of chapters) {
-              if (!chapter.start || !chapter.end) continue;
+              if (typeof chapter.start == 'undefined' || typeof chapter.end == 'undefined') continue;
               //Generate timestamps
               const startTime = new Date(0), endTime = new Date(0);
               startTime.setSeconds(chapter.start);
@@ -1399,7 +1400,7 @@ export default class Crunchy implements ServiceClass {
 
       variables.push(...([
         ['title', medias.episodeTitle, true],
-        ['episode', isNaN(parseInt(medias.episodeNumber)) ? medias.episodeNumber : parseInt(medias.episodeNumber), false],
+        ['episode', isNaN(parseFloat(medias.episodeNumber)) ? medias.episodeNumber : parseFloat(medias.episodeNumber), false],
         ['service', 'CR', false],
         ['seriesTitle', medias.seriesTitle, true],
         ['showTitle', medias.seasonTitle, true],
@@ -1956,6 +1957,8 @@ export default class Crunchy implements ServiceClass {
             console.info('Downloading skipped!');
           }
         }
+      } else if (options.novids && options.noaudio) {
+        fileName = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
       }
 
       if (compiledChapters.length > 0) {
@@ -2045,11 +2048,11 @@ export default class Crunchy implements ServiceClass {
               if(subsAssReq.ok && subsAssReq.res){
                 let sBody;
                 if (subsItem.format == 'vtt') {
-                  //TODO: look into converting downloaded vtt into ASS
-                  //sBody = vttConvert(subsAssReq.res.body, false, langItem.language, options.fontSize, options.fontName);
-                  sBody = subsAssReq.res.body;
-                  //TODO: look into parsing the fonts from the styles field in the VTT
-                  sxData.fonts = options.fontName ? [options.fontName] as Font[] : [];
+                  const chosenFontSize = options.originalFontSize ? undefined : options.fontSize;
+                  if (!options.originalFontSize) subsAssReq.res.body = subsAssReq.res.body.replace(/( font-size:.+?;)/g, '').replace(/(font-size:.+?;)/g, '');
+                  sBody = vtt2ass(undefined, chosenFontSize, subsAssReq.res.body, '', undefined, options.fontName);
+                  sxData.fonts = fontsData.assFonts(sBody) as Font[];
+                  sxData.file = sxData.file.replace('.vtt','.ass');
                 } else {
                   sBody = '\ufeff' + subsAssReq.res.body;
                   const sBodySplit = sBody.split('\r\n');
@@ -2186,7 +2189,7 @@ export default class Crunchy implements ServiceClass {
       merger.cleanUp();
   }
 
-  public async listSeriesID(id: string): Promise<{ list: Episode[], data: Record<string, {
+  public async listSeriesID(id: string, data?: CrunchyMultiDownload): Promise<{ list: Episode[], data: Record<string, {
     items: CrunchyEpisode[];
     langs: langsData.LanguageItem[];
   }>}> {
@@ -2203,6 +2206,7 @@ export default class Crunchy implements ServiceClass {
     for(const season of Object.keys(result) as unknown as number[]) {
       for (const key of Object.keys(result[season])) {
         const s = result[season][key];
+        if (data?.s && s.id !== data.s) continue;
         (await this.getSeasonDataById(s))?.data?.forEach(episode => {
           //TODO: Make sure the below code is ok
           //Prepare the episode array
@@ -2257,8 +2261,13 @@ export default class Crunchy implements ServiceClass {
       delete episodes[key];
     }
 
-    for (const key of Object.keys(episodes)) {
-      const item = episodes[key];
+    // Sort episodes to have specials at the end
+    const specials = Object.entries(episodes).filter(a => a[0].startsWith('S')),
+      normal = Object.entries(episodes).filter(a => a[0].startsWith('E')),
+      sortedEpisodes = Object.fromEntries([...normal, ...specials]);
+
+    for (const key of Object.keys(sortedEpisodes)) {
+      const item = sortedEpisodes[key];
       console.info(`[${key}] ${
         item.items.find(a => !a.season_title.match(/\(\w+ Dub\)/))?.season_title ?? item.items[0].season_title.replace(/\(\w+ Dub\)/g, '').trimEnd()
       } - Season ${item.items[0].season_number} - ${item.items[0].title} [${
@@ -2268,13 +2277,11 @@ export default class Crunchy implements ServiceClass {
       }]`);
     }
 
-    //TODO: Sort episodes to have specials at the end
-
     if (!serieshasversions) {
       console.warn('Couldn\'t find versions on some episodes, fell back to old method.');
     }
 
-    return { data: episodes, list: Object.entries(episodes).map(([key, value]) => {
+    return { data: sortedEpisodes, list: Object.entries(sortedEpisodes).map(([key, value]) => {
       const images = (value.items[0].images.thumbnail ?? [[ { source: '/notFound.png' } ]])[0];
       const seconds = Math.floor(value.items[0].duration_ms / 1000);
       return {
@@ -2294,7 +2301,7 @@ export default class Crunchy implements ServiceClass {
   }
 
   public async downloadFromSeriesID(id: string, data: CrunchyMultiDownload) : Promise<ResponseBase<CrunchyEpMeta[]>> {
-    const { data: episodes } = await this.listSeriesID(id);
+    const { data: episodes } = await this.listSeriesID(id, data);
     console.info('');
     console.info('-'.repeat(30));
     console.info('');
@@ -2333,6 +2340,7 @@ export default class Crunchy implements ServiceClass {
           item.season_title = 'NO_TITLE';
           item.series_title = 'NO_TITLE';
         }
+
         const epNum = key.startsWith('E') ? key.slice(1) : key;
         // set data
         const images = (item.images.thumbnail ?? [[ { source: '/notFound.png' } ]])[0];

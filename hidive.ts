@@ -18,7 +18,7 @@ import * as langsData from './modules/module.langsData';
 import * as yamlCfg from './modules/module.cfg-loader';
 import * as yargs from './modules/module.app-args';
 import Merger, { Font, MergerInput, SubtitleInput } from './modules/module.merger';
-import { vtt } from './modules/module.vtt2ass';
+import vtt2ass from './modules/module.vtt2ass';
 
 // load req
 import { domain, api } from './modules/module.api-urls';
@@ -1052,10 +1052,19 @@ export default class Hidive implements ServiceClass {
       return { isOk: false, reason: new Error('You do not have access to this') };
     }
 
-    const seasonData = await this.getSeason(episodeData.episodeInformation.season);
-    if (!seasonData.isOk || !seasonData.value) { 
-      console.error('Failed to get season data');
-      return { isOk: false, reason: new Error('Failed to get season data') };
+    let seasonData: Awaited<ReturnType<typeof this.getSeason>> | undefined = undefined;
+    if (episodeData.episodeInformation) { 
+      seasonData = await this.getSeason(episodeData.episodeInformation.season);
+      if (!seasonData.isOk || !seasonData.value) { 
+        console.error('Failed to get season data');
+        return { isOk: false, reason: new Error('Failed to get season data') };
+      }
+    } else {
+      episodeData.episodeInformation = {
+        season: 0,
+        seasonNumber: 0,
+        episodeNumber: 0,
+      };
     }
 
     //Get Playback data
@@ -1078,8 +1087,8 @@ export default class Hidive implements ServiceClass {
       ...episodeData,
       nameLong: episodeData.title,
       titleId: episodeData.id,
-      seasonTitle: seasonData.value.title,
-      seriesTitle: seasonData.value.series.title,
+      seasonTitle: seasonData?.value.title ?? episodeData.title,
+      seriesTitle: seasonData?.value.series.title ?? episodeData.title,
       isSelected: true
     };
     
@@ -1120,7 +1129,7 @@ export default class Hidive implements ServiceClass {
     let dlFailed = false;
     const subsMargin = 0;
     const chosenFontSize = options.originalFontSize ? undefined : options.fontSize;
-    let encryptionKeys: KeyContainer[] | undefined = undefined;
+    let encryptionKeys: KeyContainer[] = [];
     if (!canDecrypt) console.warn('Decryption not enabled!');
 
     if (!this.cfg.bin.ffmpeg) 
@@ -1217,6 +1226,10 @@ export default class Hidive implements ServiceClass {
         chosenAudios.push(audioByLanguage[dubLang][chosenAudioQuality]);
       }
     }
+    if (chosenAudios.length == 0) {
+      console.error(`Chosen audio language(s) does not exist for episode ${selectedEpisode.episodeInformation.episodeNumber}`);
+      return undefined;
+    }
 
     const fileName = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
 
@@ -1224,6 +1237,13 @@ export default class Hidive implements ServiceClass {
     console.info(`Selected (Available) Audio Languages: ${chosenAudios.map(a => a.language.name).join(', ')}`);
     console.info('Stream URL:', chosenVideoSegments.segments[0].map.uri.split('/init.mp4')[0]);
 
+    if (chosenAudios[0].pssh || chosenVideoSegments.pssh) {
+      encryptionKeys = await getKeys(chosenVideoSegments.pssh, 'https://shield-drm.imggaming.com/api/v2/license', {
+        'Authorization': `Bearer ${selectedEpisode.jwtToken}`,
+        'X-Drm-Info': 'eyJzeXN0ZW0iOiJjb20ud2lkZXZpbmUuYWxwaGEifQ==',
+      });
+    }
+          
     if (!options.novids) {
       //Download Video
       const totalParts = chosenVideoSegments.segments.length;
@@ -1264,10 +1284,6 @@ export default class Hidive implements ServiceClass {
       } else {
         if (chosenVideoSegments.pssh) {
           console.info('Decryption Needed, attempting to decrypt');
-          encryptionKeys = await getKeys(chosenVideoSegments.pssh, 'https://shield-drm.imggaming.com/api/v2/license', {
-            'Authorization': `Bearer ${selectedEpisode.jwtToken}`,
-            'X-Drm-Info': 'eyJzeXN0ZW0iOiJjb20ud2lkZXZpbmUuYWxwaGEifQ==',
-          });
           if (encryptionKeys.length == 0) {
             console.error('Failed to get encryption keys');
             return undefined;
@@ -1346,11 +1362,9 @@ export default class Hidive implements ServiceClass {
         }
         if (chosenAudioSegments.pssh) {
           console.info('Decryption Needed, attempting to decrypt');
-          if (!encryptionKeys) {
-            encryptionKeys = await getKeys(chosenVideoSegments.pssh, 'https://shield-drm.imggaming.com/api/v2/license', {
-              'Authorization': `Bearer ${selectedEpisode.jwtToken}`,
-              'X-Drm-Info': 'eyJzeXN0ZW0iOiJjb20ud2lkZXZpbmUuYWxwaGEifQ==',
-            });
+          if (encryptionKeys.length == 0) {
+            console.error('Failed to get encryption keys');
+            return undefined;
           }
           if (this.cfg.bin.mp4decrypt) {
             const commandBase = `--show-progress --key ${encryptionKeys[1].kid}:${encryptionKeys[1].key} `;
@@ -1410,7 +1424,7 @@ export default class Hidive implements ServiceClass {
             if (getVttContent.ok && getVttContent.res) {
               console.info(`Subtitle Downloaded: ${sub.url}`);
               //vttConvert(getVttContent.res.body, false, subLang.name, fontSize);
-              const sBody = vtt(undefined, chosenFontSize, getVttContent.res.body, '', subsMargin, options.fontName);
+              const sBody = vtt2ass(undefined, chosenFontSize, getVttContent.res.body, '', subsMargin, options.fontName);
               sxData.title = `${subLang.language} / ${sxData.title}`;
               sxData.fonts = fontsData.assFonts(sBody) as Font[];
               fs.writeFileSync(sxData.path, sBody);
@@ -1664,7 +1678,7 @@ export default class Hidive implements ServiceClass {
             if (getCssContent.ok && getVttContent.ok && getCssContent.res && getVttContent.res) {
               console.info(`Subtitle Downloaded: ${await this.genSubsUrl('vtt', subsXUrl)}`);
               //vttConvert(getVttContent.res.body, false, subLang.name, fontSize);
-              const sBody = vtt(undefined, chosenFontSize, getVttContent.res.body, getCssContent.res.body, subsMargin, options.fontName);
+              const sBody = vtt2ass(undefined, chosenFontSize, getVttContent.res.body, getCssContent.res.body, subsMargin, options.fontName);
               sxData.title = `${subLang.language} / ${sxData.title}`;
               sxData.fonts = fontsData.assFonts(sBody) as Font[];
               fs.writeFileSync(sxData.path, sBody);

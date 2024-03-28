@@ -1,10 +1,10 @@
 # multi-downloader-nx (4.5.2v)
 
-If you find any bugs in this documentation or in the programm itself please report it [over on GitHub](https://github.com/anidl/multi-downloader-nx/issues).
+If you find any bugs in this documentation or in the program itself please report it [over on GitHub](https://github.com/anidl/multi-downloader-nx/issues).
 
 ## Legal Warning
 
-This application is not endorsed by or affiliated with *Funimation* or *Crunchyroll*.
+This application is not endorsed by or affiliated with *Funimation*, *Hidive*, or *Crunchyroll*.
 This application enables you to download videos for offline viewing which may be forbidden by law in your country.
 The usage of this application may also cause a violation of the *Terms of Service* between you and the stream provider.
 This tool is not responsible for your actions; please make an informed decision before using this application.
@@ -144,21 +144,21 @@ This will speed up the download speed, if multiple languages are selected.
 #### `--chapters`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--chapters ` | `boolean` | `No`| `NaN` | `false`| `chapters: ` |
+| Crunchyroll | `--chapters ` | `boolean` | `No`| `NaN` | `true`| `chapters: ` |
 
 Will fetch the chapters and add them into the final video.
 Currently only works with mkvmerge.
 #### `--crapi`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--crapi ` | `string` | `No`| `NaN` | [`android`, `web`] | `android`| `crapi: ` |
+| Crunchyroll | `--crapi ` | `string` | `No`| `NaN` | [`android`, `web`] | `web`| `crapi: ` |
 
 If set to Android, it has lower quality, but Non-DRM streams,
 If set to Web, it has a higher quality adaptive stream, but everything is DRM.
 #### `--hdapi`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Hidive | `--hdapi ` | `string` | `No`| `NaN` | [`old`, `new`] | `old`| `hdapi: ` |
+| Hidive | `--hdapi ` | `string` | `No`| `NaN` | [`old`, `new`] | `new`| `hdapi: ` |
 
 If set to Old, it has lower quality, but Non-DRM streams, but some people can't use it,
 If set to New, it has a higher quality stream, but everything is DRM.
@@ -184,7 +184,7 @@ Select the server to use
 #### `--kstream`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--kstream ${stream}` | `number` | `No`| `-k` | [`1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`] | `5`| `kstream: ` |
+| Crunchyroll | `--kstream ${stream}` | `number` | `No`| `-k` | [`1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`] | `1`| `kstream: ` |
 
 Select specific stream
 #### `--hslang`
@@ -385,7 +385,7 @@ Possible Values: eng, eng, spa, spa-419, spa-ES, por, por, fra, deu, ara-ME, ara
 
 Set the filename template. Use ${variable_name} to insert variables.
 You can also create folders by inserting a path seperator in the filename
-You may use 'title', 'episode', 'showTitle', 'season', 'width', 'height', 'service' as variables.
+You may use 'title', 'episode', 'showTitle', 'seriesTitle', 'season', 'width', 'height', 'service' as variables.
 #### `--numbers`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
