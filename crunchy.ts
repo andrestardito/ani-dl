@@ -1685,7 +1685,7 @@ export default class Crunchy implements ServiceClass {
             // TODO check filename
             fileName = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
             const outFile = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
-            const tempFile = parseFileName(`temp-${currentVersion ? currentVersion.guid : currentMediaId}`, variables, options.numbers, options.override).join(path.sep);
+            const tempFile = parseFileName(`${options.fileName}-temp-${currentVersion ? currentVersion.guid : currentMediaId}`, variables, options.numbers, options.override).join(path.sep);
             const tempTsFile = path.isAbsolute(tempFile as string) ? tempFile : path.join(this.cfg.dir.content, tempFile);
 
             let [audioDownloaded, videoDownloaded] = [false, false];
