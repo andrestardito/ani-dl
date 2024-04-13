@@ -1569,7 +1569,39 @@ export default class Crunchy implements ServiceClass {
       let tsFile = undefined;
 
       if(!dlFailed && curStream !== undefined){
-        const streamPlaylistsReq = await this.req.getData(curStream.url, AuthHeaders);
+        let streamPlaylistsReq = await this.req.getData(curStream.url, AuthHeaders);
+
+        /** Este logica se encarga de probar con el resto de streams disponibles por si falla la descarga con el kstream configurado en downcr,
+         * asi logro evitar tener que estar buscando con cual se puede descargar. */
+        if((!streamPlaylistsReq.ok || !streamPlaylistsReq.res) && streams.length > 1) {
+          delete streams[options.kstream-1];
+          console.error("No pudo descargar con el kstream configurado en downcr como ", options.kstream, " que es de tipo ", curStream.type);
+          
+          console.info("\nComenzado a probar descargar con los otros streams disponibles.\n");
+          let i = 0;
+
+          while(i < streams.length && !streamPlaylistsReq.ok) {
+            curStream = streams[i];
+            if (!curStream) {
+              i++;
+              continue;
+            }
+
+            streamPlaylistsReq = await this.req.getData(curStream.url, AuthHeaders);
+
+            if(!streamPlaylistsReq.ok || !streamPlaylistsReq.res) {
+              console.error("No pudo descargar con el kstream ", i + 1, " de tipo ", curStream.type, "\n");
+              delete streams[i];
+              i++;
+            }
+          }
+
+          if (streamPlaylistsReq.ok) {
+            console.info("Puede descargar con el kstream ", i + 1);
+            console.info("Que es del tipo: ", curStream.type, "\n");
+          }
+        }
+
         if(!streamPlaylistsReq.ok || !streamPlaylistsReq.res){
           console.error('CAN\'T FETCH VIDEO PLAYLISTS!');
           dlFailed = true;
