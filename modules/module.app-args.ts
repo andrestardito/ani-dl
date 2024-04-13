@@ -28,7 +28,7 @@ let argvC: {
   search: string | undefined; 
   'search-type': string; 
   page: number | undefined; 
-  'search-locale': string; 
+  locale: string; 
   new: boolean | undefined; 
   'movie-listing': string | undefined; 
   series: string | undefined; 
@@ -48,6 +48,7 @@ let argvC: {
   dubLang: string[]; 
   all: boolean; 
   fontSize: number; 
+  combineLines: boolean;
   allDubs: boolean; 
   timeout: number; 
   waittime: number;

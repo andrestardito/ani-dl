@@ -1,4 +1,4 @@
-# multi-downloader-nx (4.5.2v)
+# multi-downloader-nx (4.7.1v)
 
 If you find any bugs in this documentation or in the program itself please report it [over on GitHub](https://github.com/anidl/multi-downloader-nx/issues).
 
@@ -80,12 +80,12 @@ Search only for type of anime listings (e.g. episodes, series)
 | Crunchyroll, Hidive | `--page ${page}` | `number` | `No`| `-p` | `NaN` |
 
 The output is organized in pages. Use this command to output the items for the given page
-#### `--search-locale`
+#### `--locale`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--search-locale ${locale}` | `string` | `No`| `NaN` | [`''`, `en-US`, `en-IN`, `es-LA`, `es-419`, `es-ES`, `pt-BR`, `pt-PT`, `fr-FR`, `de-DE`, `ar-ME`, `ar-SA`, `it-IT`, `ru-RU`, `tr-TR`, `hi-IN`, `zh-CN`, `zh-TW`, `ko-KR`, `ca-ES`, `pl-PL`, `th-TH`, `ta-IN`, `ms-MY`, `vi-VN`, `id-ID`, `te-IN`] | ``| `search-locale: ` |
+| Crunchyroll | `--locale ${locale}` | `string` | `No`| `NaN` | [`''`, `en-US`, `en-IN`, `es-LA`, `es-419`, `es-ES`, `pt-BR`, `pt-PT`, `fr-FR`, `de-DE`, `ar-ME`, `ar-SA`, `it-IT`, `ru-RU`, `tr-TR`, `hi-IN`, `zh-CN`, `zh-TW`, `ko-KR`, `ca-ES`, `pl-PL`, `th-TH`, `ta-IN`, `ms-MY`, `vi-VN`, `id-ID`, `te-IN`] | `en-US`| `locale: ` |
 
-Set the search local that will be used for searching for items.
+Set the local that will be used for the API.
 #### `--new`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
@@ -238,7 +238,14 @@ Used to download all episodes from the show
 | --- | --- | --- | --- | --- | --- | ---| 
 | All | `--fontSize ${fontSize}` | `number` | `No`| `NaN` | `55`| `fontSize: ` |
 
-Used to set the fontsize of the subtitles
+When converting the subtitles to ass, this will change the font size
+In most cases, requires "--originaFontSize false" to take effect
+#### `--combineLines`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
+| --- | --- | --- | --- | --- | ---| 
+| Hidive | `--combineLines ` | `boolean` | `No`| `NaN` | `NaN` |
+
+If selected, will prevent a line from shifting downwards
 #### `--allDubs`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
