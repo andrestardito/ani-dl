@@ -1711,8 +1711,8 @@ export default class Crunchy implements ServiceClass {
               const split = outFile.split(path.sep).slice(0, -1);
               split.forEach((val, ind, arr) => {
                 const isAbsolut = path.isAbsolute(outFile as string);
-                if (!fs.existsSync(path.join(isAbsolut ? '' : this.cfg.dir.content, ...arr.slice(0, ind), val)))
-                  fs.mkdirSync(path.join(isAbsolut ? '' : this.cfg.dir.content, ...arr.slice(0, ind), val));
+                if (!fs.existsSync(path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val)))
+                  fs.mkdirSync(path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val));
               });
               const videoJson: M3U8Json = {
                 segments: chosenVideoSegments.segments
@@ -2011,8 +2011,8 @@ export default class Crunchy implements ServiceClass {
                 const split = outFile.split(path.sep).slice(0, -1);
                 split.forEach((val, ind, arr) => {
                   const isAbsolut = path.isAbsolute(outFile as string);
-                  if (!fs.existsSync(path.join(isAbsolut ? '' : this.cfg.dir.content, ...arr.slice(0, ind), val)))
-                    fs.mkdirSync(path.join(isAbsolut ? '' : this.cfg.dir.content, ...arr.slice(0, ind), val));
+                  if (!fs.existsSync(path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val)))
+                    fs.mkdirSync(path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val));
                 });
                 const dlStreamByPl = await new streamdl({
                   output: `${tsFile}.ts`,
