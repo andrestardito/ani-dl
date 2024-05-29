@@ -273,6 +273,7 @@ export default class AnimationDigitalNetwork implements ServiceClass {
       } else {
         episode.season = '1';
       }
+      show.value.videos[episodeIndex].season = episode.season;
       if (!episodeNumber) {
         specialIndex++;
         const special = show.value.videos.splice(episodeIndex, 1);
@@ -280,12 +281,12 @@ export default class AnimationDigitalNetwork implements ServiceClass {
         specials.push(...special);
         episodeIndex--;
       } else {
-        console.info(`  [E${episode.shortNumber}] ${episode.number} - ${episode.name}`);
+        console.info(`  (${episode.id}) [E${episode.shortNumber}] ${episode.number} - ${episode.name}`);
       }
       episodeIndex++;
     }
     for (const special of specials) {
-      console.info(`  [${special.shortNumber}] ${special.number} - ${special.name}`);
+      console.info(`  (${special.id}) [${special.shortNumber}] ${special.number} - ${special.name}`);
     }
     show.value.videos.push(...specials);
     return { isOk: true, value: show.value };
@@ -446,7 +447,7 @@ export default class AnimationDigitalNetwork implements ServiceClass {
     let fileName;
     const variables: Variable[] = [];
     if(data.show.title && data.shortNumber && data.title){
-      mediaName = `${data.show.shortTitle} - ${data.shortNumber} - ${data.title}`;
+      mediaName = `${data.show.shortTitle ?? data.show.title} - ${data.shortNumber} - ${data.title}`;
     }
 
     const files: DownloadedMedia[] = [];
@@ -541,7 +542,7 @@ export default class AnimationDigitalNetwork implements ServiceClass {
         ['title', data.title, true],
         ['episode', isNaN(parseFloat(data.shortNumber)) ? data.shortNumber : parseFloat(data.shortNumber), false],
         ['service', 'ADN', false],
-        ['seriesTitle', data.show.shortTitle, true],
+        ['seriesTitle', data.show.shortTitle ?? data.show.title, true],
         ['showTitle', data.show.title, true],
         ['season', isNaN(parseFloat(data.season)) ? data.season : parseFloat(data.season), false]
       ] as [AvailableFilenameVars, string|number, boolean][]).map((a): Variable => {
