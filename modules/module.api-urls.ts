@@ -41,7 +41,7 @@ export type APIType = {
   /**
    * Mobile Header
    */
-  cruncyhAuthHeaderMob: Record<string, string>,
+  crunchyAuthHeaderMob: Record<string, string>,
   /**
    * Switch Header
    */
@@ -75,7 +75,7 @@ const api: APIType = {
   // beta api
   beta_auth:         `${domain.api_beta}/auth/v1/token`,
   authBasic:         'Basic bm9haWhkZXZtXzZpeWcwYThsMHE6',
-  authBasicMob:      'Basic bm12anNoZmtueW14eGtnN2ZiaDk6WllJVnJCV1VQYmNYRHRiRDIyVlNMYTZiNFdRb3Mzelg=',
+  authBasicMob:      'Basic dXU4aG0wb2g4dHFpOWV0eXl2aGo6SDA2VnVjRnZUaDJ1dEYxM0FBS3lLNE85UTRhX3BlX1o=',
   authBasicSwitch:   'Basic dC1rZGdwMmg4YzNqdWI4Zm4wZnE6eWZMRGZNZnJZdktYaDRKWFMxTEVJMmNDcXUxdjVXYW4=',
   beta_profile:      `${domain.api_beta}/accounts/v1/me/profile`,
   beta_cmsToken:     `${domain.api_beta}/index/v2`,
@@ -85,7 +85,7 @@ const api: APIType = {
   beta_cms:          `${domain.api_beta}/cms/v2`,
   drm:               `${domain.api_beta}/drm/v1/auth`,
   crunchyAuthHeader: {},
-  cruncyhAuthHeaderMob: {},
+  crunchyAuthHeaderMob: {},
   crunchyAuthHeaderSwitch: {},
   //hidive API
   hd_apikey:        '508efd7b42d546e19cc24f4d0b414e57e351ca73',
@@ -104,9 +104,12 @@ const api: APIType = {
 api.crunchyAuthHeader = { 
   Authorization: api.authBasic,
 };
-api.cruncyhAuthHeaderMob = { 
+
+api.crunchyAuthHeaderMob = {
   Authorization: api.authBasicMob,
+  'user-agent': 'Crunchyroll/3.60.0 Android/9 okhttp/4.12.0'
 };
+
 api.crunchyAuthHeaderSwitch = { 
   Authorization: api.authBasicSwitch,
 };
