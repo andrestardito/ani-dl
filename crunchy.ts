@@ -18,7 +18,7 @@ import * as langsData from './modules/module.langsData';
 import * as yamlCfg from './modules/module.cfg-loader';
 import * as yargs from './modules/module.app-args';
 import Merger, { Font, MergerInput, SubtitleInput } from './modules/module.merger';
-import getKeys, { canDecrypt } from './modules/widevine';
+import { canDecrypt, getKeysPRD, getKeysWVD, cdm } from './modules/cdm';
 //import vttConvert from './modules/module.vttconvert';
 
 // args
@@ -212,7 +212,11 @@ export default class Crunchy implements ServiceClass {
           console.info('');
         }
         const fontUrl = fontsData.root + f;
-        const getFont = await this.req.getData(fontUrl);
+        const getFont = await this.req.getData(fontUrl, {
+          headers: {
+            'User-Agent': api.defaultUserAgent
+          }
+        });
         if(getFont.ok && getFont.res){
           fs.writeFileSync(fontLoc, Buffer.from(await getFont.res.arrayBuffer()));
           console.info(`Downloaded: ${f}`);
@@ -233,7 +237,8 @@ export default class Crunchy implements ServiceClass {
       'grant_type': 'password',
       'scope': 'offline_access',
       'device_id': uuid,
-      'device_type': 'Chrome on Windows'
+      'device_name': 'iPhone',
+      'device_type': 'iPhone 13'
     }).toString();
     const authReqOpts: reqModule.Params = {
       method: 'POST',
@@ -260,7 +265,8 @@ export default class Crunchy implements ServiceClass {
       'grant_type': 'client_id',
       'scope': 'offline_access',
       'device_id': uuid,
-      'device_type': 'Chrome on Windows'
+      'device_name': 'iPhone',
+      'device_type': 'iPhone 13'
     }).toString();
     const authReqOpts: reqModule.Params = {
       method: 'POST',
@@ -292,6 +298,7 @@ export default class Crunchy implements ServiceClass {
     const profileReqOptions = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -318,7 +325,8 @@ export default class Crunchy implements ServiceClass {
       //'grant_type': 'etp_rt_cookie',
       'scope': 'offline_access',
       'device_id': uuid,
-      'device_type': 'Chrome on Windows'
+      'device_name': 'iPhone',
+      'device_type': 'iPhone 13'
     }).toString();
     const authReqOpts: reqModule.Params = {
       method: 'POST',
@@ -403,6 +411,7 @@ export default class Crunchy implements ServiceClass {
     const cmsTokenReqOpts = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -435,7 +444,11 @@ export default class Crunchy implements ServiceClass {
         'Key-Pair-Id': this.cmsToken.cms.key_pair_id,
       }),
     ].join('');
-    const indexReq = await this.req.getData(indexReqOpts);
+    const indexReq = await this.req.getData(indexReqOpts, {
+      headers: {
+        'User-Agent': api.defaultUserAgent
+      }
+    });
     if(!indexReq.ok || ! indexReq.res){
       console.error('Get CMS index FAILED!');
       return;
@@ -451,6 +464,7 @@ export default class Crunchy implements ServiceClass {
     const searchReqOpts = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -718,6 +732,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -759,6 +774,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -798,6 +814,7 @@ export default class Crunchy implements ServiceClass {
     const newlyAddedReqOpts = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -832,6 +849,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -1034,7 +1052,11 @@ export default class Crunchy implements ServiceClass {
           }),
         ].join('');
 
-        const extIdReq = await this.req.getData(extIdReqOpts);
+        const extIdReq = await this.req.getData(extIdReqOpts, {
+          headers: {
+            'User-Agent': api.defaultUserAgent
+          }
+        });
         if (!extIdReq.ok || !extIdReq.res) {
           console.error('Objects Request FAILED!');
           if (extIdReq.error && extIdReq.error.res && extIdReq.error.res.body) {
@@ -1064,6 +1086,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -1242,6 +1265,7 @@ export default class Crunchy implements ServiceClass {
           'X-Cr-Disable-Drm': 'true',
           'X-Cr-Enable-Drm': 'false',
           'X-Cr-Stream-Limits': 'false',
+          'User-Agent': api.defaultUserAgent
           //'X-Cr-Segment-CDN': 'all',
           //'User-Agent': 'Crunchyroll/1.8.0 Nintendo Switch/12.3.12.0 UE4/4.27'
         }
@@ -1273,11 +1297,19 @@ export default class Crunchy implements ServiceClass {
       const compiledChapters: string[] = [];
       if (options.chapters) {
         //Make Chapter Request
-        const chapterRequest = await this.req.getData(`https://static.crunchyroll.com/skip-events/production/${currentMediaId}.json`);
+        const chapterRequest = await this.req.getData(`https://static.crunchyroll.com/skip-events/production/${currentMediaId}.json`, {
+          headers: {
+            'User-Agent': api.defaultUserAgent
+          }
+        });
         if(!chapterRequest.ok || !chapterRequest.res){
         //Old Chapter Request Fallback
           console.warn('Chapter request failed, attempting old API');
-          const oldChapterRequest = await this.req.getData(`https://static.crunchyroll.com/datalab-intro-v2/${currentMediaId}.json`);
+          const oldChapterRequest = await this.req.getData(`https://static.crunchyroll.com/datalab-intro-v2/${currentMediaId}.json`, {
+            headers: {
+              'User-Agent': api.defaultUserAgent
+            }
+          });
           if(!oldChapterRequest.ok || !oldChapterRequest.res) {
             console.warn('Old Chapter API request failed');
           } else {
@@ -1379,7 +1411,7 @@ export default class Crunchy implements ServiceClass {
       if (options.cstream !== 'none') {
         const playbackReq = await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyPlayStreams[options.cstream]}/play`, AuthHeaders);
         if (!playbackReq.ok || !playbackReq.res) {
-          console.error('Non-DRM Request Stream URLs FAILED!');
+          console.error('Request Stream URLs FAILED!');
         } else {
           playStream = await playbackReq.res.json() as CrunchyPlayStream;
           const derivedPlaystreams = {} as CrunchyStreams;
@@ -1439,14 +1471,19 @@ export default class Crunchy implements ServiceClass {
       const pbStreams = pbData.data[0];
 
       if (!canDecrypt) {
-        console.warn('Decryption not enabled!');
+        console.error('No valid Widevine or PlayReady CDM detected. Please ensure a supported and functional CDM is installed.');
+        return undefined;
+      }
+      
+      if (!this.cfg.bin.mp4decrypt && !this.cfg.bin.shaka) {
+        console.error('Neither Shaka nor MP4Decrypt found. Please ensure at least one of them is installed.');
+        return undefined;
       }
 
       for (const s of Object.keys(pbStreams)) {
         if (
           (s.match(/hls/) || s.match(/dash/)) 
           && !(s.match(/hls/) && s.match(/drm/)) 
-          && !((!canDecrypt || !this.cfg.bin.mp4decrypt) && s.match(/drm/))
           && !s.match(/trailer/)
         ) {
           const pb = Object.values(pbStreams[s]).map(v => {
@@ -1686,17 +1723,15 @@ export default class Crunchy implements ServiceClass {
               const mathMsg    = `(${mathParts}*${options.partsize})`;
               console.info('Total parts in video stream:', totalParts, mathMsg);
               tsFile = path.isAbsolute(outFile as string) ? outFile : path.join(this.cfg.dir.content, outFile);
-              const split = outFile.split(path.sep).slice(0, -1);
-              split.forEach((val, ind, arr) => {
-                const isAbsolut = path.isAbsolute(outFile as string);
-                if (!fs.existsSync(path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val)))
-                  fs.mkdirSync(path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val));
-              });
+              const dirName = path.dirname(tsFile);
+              if (!fs.existsSync(dirName)) {
+                fs.mkdirSync(dirName, { recursive: true });
+              }
               const videoJson: M3U8Json = {
                 segments: chosenVideoSegments.segments
               };
               const videoDownload = await new streamdl({
-                output: chosenVideoSegments.pssh ? `${tempTsFile}.video.enc.m4s` : `${tsFile}.video.m4s`,
+                output: chosenVideoSegments.pssh_wvd || chosenVideoSegments.pssh_prd ? `${tempTsFile}.video.enc.m4s` : `${tsFile}.video.m4s`,
                 timeout: options.timeout,
                 m3u8json: videoJson,
                 // baseurl: chunkPlaylist.baseUrl,
@@ -1728,19 +1763,15 @@ export default class Crunchy implements ServiceClass {
               const mathMsg    = `(${mathParts}*${options.partsize})`;
               console.info('Total parts in audio stream:', totalParts, mathMsg);
               tsFile = path.isAbsolute(outFile as string) ? outFile : path.join(this.cfg.dir.content, outFile);
-              const split = outFile.split(path.sep).slice(0, -1);
-              split.forEach((val, ind, arr) => {
-                const isAbsolut = path.isAbsolute(outFile as string);
-                const pathTmp = path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val);
-                if (!fs.existsSync(pathTmp)) {
-                  fs.mkdirSync(pathTmp);
-                }
-              });
+              const dirName = path.dirname(tsFile);
+              if (!fs.existsSync(dirName)) {
+                fs.mkdirSync(dirName, { recursive: true });
+              }
               const audioJson: M3U8Json = {
                 segments: chosenAudioSegments.segments
               };
               const audioDownload = await new streamdl({
-                output: chosenAudioSegments.pssh ? `${tempTsFile}.audio.enc.m4s` : `${tsFile}.audio.m4s`,
+                output: chosenVideoSegments.pssh_wvd || chosenVideoSegments.pssh_prd ? `${tempTsFile}.audio.enc.m4s` : `${tsFile}.audio.m4s`,
                 timeout: options.timeout,
                 m3u8json: audioJson,
                 // baseurl: chunkPlaylist.baseUrl,
@@ -1767,7 +1798,7 @@ export default class Crunchy implements ServiceClass {
             }
 
             //Handle Decryption if needed
-            if ((chosenVideoSegments.pssh || chosenAudioSegments.pssh) && (videoDownloaded || audioDownloaded)) {
+            if ((chosenVideoSegments.pssh_wvd ||chosenVideoSegments.pssh_prd || chosenAudioSegments.pssh_wvd || chosenAudioSegments.pssh_prd) && (videoDownloaded || audioDownloaded)) {
               const assetIdRegex = chosenVideoSegments.segments[0].uri.match(/\/assets\/(?:p\/)?([^_,]+)/);
               const assetId = assetIdRegex ? assetIdRegex[1] : null;
               const sessionId = new Date().getUTCMilliseconds().toString().padStart(3, '0') + process.hrtime.bigint().toString().slice(0, 13);
@@ -1780,18 +1811,34 @@ export default class Crunchy implements ServiceClass {
                   'asset_id': assetId,
                   'session_id': sessionId,
                   'user_id': this.token.account_id
-                })
+                }),
+                headers: {
+                  'User-Agent': api.defaultUserAgent
+                }
               });
               if(!decReq.ok || !decReq.res){
                 console.error('Request to DRM Authentication failed:', decReq.error?.res.status, decReq.error?.message);
                 return undefined;
               }
               const authData = await decReq.res.json() as {'custom_data': string, 'token': string};
-              const encryptionKeys = await getKeys(chosenVideoSegments.pssh, 'https://lic.drmtoday.com/license-proxy-widevine/cenc/', {
-                'dt-custom-data': authData.custom_data,
-                'x-dt-auth-token': authData.token
-              });
-              if (encryptionKeys.length == 0) {
+
+              let encryptionKeys;
+
+              if (cdm === 'widevine') {
+                encryptionKeys = await getKeysWVD(chosenVideoSegments.pssh_wvd, 'https://lic.drmtoday.com/license-proxy-widevine/cenc/', {
+                  'dt-custom-data': authData.custom_data,
+                  'x-dt-auth-token': authData.token
+                });
+              }
+
+              if (cdm === 'playready') {
+                encryptionKeys = await getKeysPRD(chosenVideoSegments.pssh_prd, 'https://lic.drmtoday.com/license-proxy-headerauth/drmtoday/RightsManager.asmx', {
+                  'dt-custom-data': authData.custom_data,
+                  'x-dt-auth-token': authData.token
+                });
+              }
+
+              if (!encryptionKeys || encryptionKeys.length == 0) {
                 console.error('Failed to get encryption keys');
                 return undefined;
               }
@@ -1800,14 +1847,20 @@ export default class Crunchy implements ServiceClass {
                 keys[key.kid] = key.key;
               });*/
 
-              if (this.cfg.bin.mp4decrypt) {
-                const commandBase = `--show-progress --key ${encryptionKeys[1].kid}:${encryptionKeys[1].key} `;
-                const commandVideo = commandBase+`"${tempTsFile}.video.enc.m4s" "${tempTsFile}.video.m4s"`;
-                const commandAudio = commandBase+`"${tempTsFile}.audio.enc.m4s" "${tempTsFile}.audio.m4s"`;
+              if (this.cfg.bin.mp4decrypt || this.cfg.bin.shaka) {
+                let commandBase = `--show-progress --key ${encryptionKeys[cdm === 'playready' ? 0 : 1].kid}:${encryptionKeys[cdm === 'playready' ? 0 : 1].key} `;
+                let commandVideo = commandBase+`"${tempTsFile}.video.enc.m4s" "${tempTsFile}.video.m4s"`;
+                let commandAudio = commandBase+`"${tempTsFile}.audio.enc.m4s" "${tempTsFile}.audio.m4s"`;
+
+                if (this.cfg.bin.shaka) {
+                  commandBase = ` --enable_raw_key_decryption ${encryptionKeys.map(kb => '--keys key_id='+kb.kid+':key='+kb.key).join(' ')}`;
+                  commandVideo = `input="${tempTsFile}.video.enc.m4s",stream=video,output="${tempTsFile}.video.m4s"`+commandBase;
+                  commandAudio = `input="${tempTsFile}.audio.enc.m4s",stream=audio,output="${tempTsFile}.audio.m4s"`+commandBase;
+                }
 
                 if (videoDownloaded) {
-                  console.info('Started decrypting video');
-                  const decryptVideo = exec('mp4decrypt', `"${this.cfg.bin.mp4decrypt}"`, commandVideo);
+                  console.info('Started decrypting video,', this.cfg.bin.shaka ? 'using shaka' : 'using mp4decrypt');
+                  const decryptVideo = exec(this.cfg.bin.shaka ? 'shaka-packager' : 'mp4decrypt', this.cfg.bin.shaka ? `"${this.cfg.bin.shaka}"` : `"${this.cfg.bin.mp4decrypt}"`, commandVideo);
                   if (!decryptVideo.isOk) {
                     console.error(decryptVideo.err);
                     console.error(`Decryption failed with exit code ${decryptVideo.err.code}`);
@@ -1818,7 +1871,8 @@ export default class Crunchy implements ServiceClass {
                     if (!options.nocleanup) {
                       fs.removeSync(`${tempTsFile}.video.enc.m4s`);
                     }
-                    fs.renameSync(`${tempTsFile}.video.m4s`, `${tsFile}.video.m4s`);
+                    fs.copyFileSync(`${tempTsFile}.video.m4s`, `${tsFile}.video.m4s`);
+                    fs.unlinkSync(`${tempTsFile}.video.m4s`);
                     files.push({
                       type: 'Video',
                       path: `${tsFile}.video.m4s`,
@@ -1829,8 +1883,8 @@ export default class Crunchy implements ServiceClass {
                 }
 
                 if (audioDownloaded) {
-                  console.info('Started decrypting audio');
-                  const decryptAudio = exec('mp4decrypt', `"${this.cfg.bin.mp4decrypt}"`, commandAudio);
+                  console.info('Started decrypting audio,', this.cfg.bin.shaka ? 'using shaka' : 'using mp4decrypt');
+                  const decryptAudio = exec(this.cfg.bin.shaka ? 'shaka' : 'mp4decrypt', this.cfg.bin.shaka ? `"${this.cfg.bin.shaka}"` : `"${this.cfg.bin.mp4decrypt}"`, commandAudio);
                   if (!decryptAudio.isOk) {
                     console.error(decryptAudio.err);
                     console.error(`Decryption failed with exit code ${decryptAudio.err.code}`);
@@ -1840,7 +1894,8 @@ export default class Crunchy implements ServiceClass {
                     if (!options.nocleanup) {
                       fs.removeSync(`${tempTsFile}.audio.enc.m4s`);
                     }
-                    fs.renameSync(`${tempTsFile}.audio.m4s`, `${tsFile}.audio.m4s`);
+                    fs.copyFileSync(`${tempTsFile}.audio.m4s`, `${tsFile}.audio.m4s`);
+                    fs.unlinkSync(`${tempTsFile}.audio.m4s`);
                     files.push({
                       type: 'Audio',
                       path: `${tsFile}.audio.m4s`,
@@ -1851,7 +1906,7 @@ export default class Crunchy implements ServiceClass {
                   }
                 }
               } else {
-                console.warn('mp4decrypt not found, files need decryption. Decryption Keys:', encryptionKeys);
+                console.warn('mp4decrypt/shaka not found, files need decryption. Decryption Keys:', encryptionKeys);
               }
             } else {
               if (videoDownloaded) {
@@ -1974,7 +2029,11 @@ export default class Crunchy implements ServiceClass {
               fileName = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
               const outFile = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
               console.info(`Output filename: ${outFile}`);
-              const chunkPage = await this.req.getData(selPlUrl);
+              const chunkPage = await this.req.getData(selPlUrl, {
+                headers: {
+                  'User-Agent': api.defaultUserAgent
+                }
+              });
               if(!chunkPage.ok || !chunkPage.res){
                 console.error('CAN\'T FETCH VIDEO PLAYLIST!');
                 dlFailed = true;
@@ -1992,12 +2051,10 @@ export default class Crunchy implements ServiceClass {
                 const mathMsg    = `(${mathParts}*${options.partsize})`;
                 console.info('Total parts in stream:', totalParts, mathMsg);
                 tsFile = path.isAbsolute(outFile as string) ? outFile : path.join(this.cfg.dir.content, outFile);
-                const split = outFile.split(path.sep).slice(0, -1);
-                split.forEach((val, ind, arr) => {
-                  const isAbsolut = path.isAbsolute(outFile as string);
-                  if (!fs.existsSync(path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val)))
-                    fs.mkdirSync(path.join(isAbsolut ? '/' : this.cfg.dir.content, ...arr.slice(0, ind), val));
-                });
+                const dirName = path.dirname(tsFile);
+                if (!fs.existsSync(dirName)) {
+                  fs.mkdirSync(dirName, { recursive: true });
+                }
                 const dlStreamByPl = await new streamdl({
                   output: `${tsFile}.ts`,
                   timeout: options.timeout,
@@ -2046,12 +2103,10 @@ export default class Crunchy implements ServiceClass {
           fileName = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
           const outFile = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
           tsFile = path.isAbsolute(outFile as string) ? outFile : path.join(this.cfg.dir.content, outFile);
-          const split = outFile.split(path.sep).slice(0, -1);
-          split.forEach((val, ind, arr) => {
-            const isAbsolut = path.isAbsolute(outFile as string);
-            if (!fs.existsSync(path.join(isAbsolut ? '' : this.cfg.dir.content, ...arr.slice(0, ind), val)))
-              fs.mkdirSync(path.join(isAbsolut ? '' : this.cfg.dir.content, ...arr.slice(0, ind), val));
-          });
+          const dirName = path.dirname(tsFile);
+          if (!fs.existsSync(dirName)) {
+            fs.mkdirSync(dirName, { recursive: true });
+          }
           const lang = langsData.languages.find(a => a.code === curStream?.audio_lang);
           if (!lang) {
             console.error(`Unable to find language for code ${curStream.audio_lang}`);
@@ -2082,8 +2137,8 @@ export default class Crunchy implements ServiceClass {
         options.skipsubs = true;
       }
 
-      if(!options.skipsubs && options.dlsubs.indexOf('none') == -1){
-        if(pbData.meta.subtitles && Object.values(pbData.meta.subtitles).length > 0){
+      if (!options.skipsubs && options.dlsubs.indexOf('none') == -1){
+        if ((pbData.meta.subtitles && Object.values(pbData.meta.subtitles).length) || (pbData.meta.closed_captions && Object.values(pbData.meta.closed_captions).length > 0)) {
           const subsData = Object.values(pbData.meta.subtitles);
           const capsData = Object.values(pbData.meta.closed_captions);
           const subsDataMapped = subsData.map((s) => {
@@ -2114,17 +2169,23 @@ export default class Crunchy implements ServiceClass {
             const isSigns = langItem.code === audDub && !subsItem.isCC;
             const isCC = subsItem.isCC;
             sxData.file = langsData.subsFile(fileName as string, subsIndex, langItem, isCC, options.ccTag, isSigns, subsItem.format);
-            sxData.path = path.isAbsolute(sxData.file as string) ? sxData.file : path.join(this.cfg.dir.content, sxData.file);
-            const split = sxData.path.split(path.sep).slice(0, -1);
-            split.forEach((val, ind, arr) => {
-              const isAbsolut = path.isAbsolute(sxData.path as string);
-              if (!fs.existsSync(path.join(isAbsolut ? '' : this.cfg.dir.content, ...arr.slice(0, ind), val)))
-                fs.mkdirSync(path.join(isAbsolut ? '' : this.cfg.dir.content, ...arr.slice(0, ind), val));
-            });
+            if (path.isAbsolute(sxData.file)) {
+              sxData.path = sxData.file;
+            } else {
+              sxData.path = path.join(this.cfg.dir.content, sxData.file);
+            }
+            const dirName = path.dirname(sxData.path);
+            if (!fs.existsSync(dirName)) {
+              fs.mkdirSync(dirName, { recursive: true });
+            }
             if (files.some(a => a.type === 'Subtitle' && (a.language.cr_locale == langItem.cr_locale || a.language.locale == langItem.locale) && a.cc === isCC && a.signs === isSigns))
               continue;
             if(options.dlsubs.includes('all') || options.dlsubs.includes(langItem.locale)){
-              const subsAssReq = await this.req.getData(subsItem.url);
+              const subsAssReq = await this.req.getData(subsItem.url, {
+                headers: {
+                  'User-Agent': api.defaultUserAgent
+                }
+              });
               if(subsAssReq.ok && subsAssReq.res){
                 let sBody = await subsAssReq.res.text();
                 if (subsItem.format == 'vtt') {
@@ -2496,6 +2557,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
@@ -2524,6 +2586,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
+        'User-Agent': api.defaultUserAgent
       },
       useProxy: true
     };
