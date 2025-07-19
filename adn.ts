@@ -255,7 +255,8 @@ export default class AnimationDigitalNetwork implements ServiceClass {
     const showData = show.value.videos[0].show;
     console.info(`[S.${showData.id}] ${showData.title}`);
     const specials: ADNVideo[] = [];
-    let episodeIndex = 0, specialIndex = 0;
+    const ncs: ADNVideo[] = [];
+    let episodeIndex = 0, specialIndex = 0, ncIndex = 0;
     for (const episode of show.value.videos) {
       episode.season = episode.season+'';
       const seasonNumberTitleParse = episode.season.match(/\d+/);
@@ -271,9 +272,13 @@ export default class AnimationDigitalNetwork implements ServiceClass {
       show.value.videos[episodeIndex].season = episode.season;
       if (!episodeNumber) {
         specialIndex++;
-        const special = show.value.videos.splice(episodeIndex, 1);
-        special[0].shortNumber = 'S'+specialIndex;
-        specials.push(...special);
+        episode.shortNumber = 'S'+specialIndex;
+        specials.push(episode);
+        episodeIndex--;
+      } else if (episode.number.includes('(NC)')) {
+        ncIndex++;
+        episode.shortNumber = 'NC'+ncIndex;
+        ncs.push(episode);
         episodeIndex--;
       } else {
         console.info(`  (${episode.id}) [E${episode.shortNumber}] ${episode.number} - ${episode.name}`);
@@ -281,9 +286,15 @@ export default class AnimationDigitalNetwork implements ServiceClass {
       episodeIndex++;
     }
     for (const special of specials) {
-      console.info(`  (${special.id}) [${special.shortNumber}] ${special.number} - ${special.name}`);
+      console.info(` (Special) (${special.id}) [${special.shortNumber}] ${special.number} - ${special.name}`);
+      show.value.videos.splice(show.value.videos.findIndex(i => i.id === special.id), 1);
+    }
+    for (const nc of ncs) {
+      console.info(` (NC) (${nc.id}) [${nc.shortNumber}] ${nc.number} - ${nc.name}`);
+      show.value.videos.splice(show.value.videos.findIndex(i => i.id === nc.id), 1);
     }
     show.value.videos.push(...specials);
+    show.value.videos.push(...ncs);
     return { isOk: true, value: show.value };
   }
 

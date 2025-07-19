@@ -265,7 +265,7 @@ export default class Crunchy implements ServiceClass {
       headers: {...api.crunchyAuthHeader, Authorization: `Basic ${await this.productionToken()}`},
       body: authData
     };
-    const authReq = await this.req.getData(api.beta_auth, authReqOpts);
+    const authReq = await this.req.getData(api.auth, authReqOpts);
     if(!authReq.ok || !authReq.res){
       console.error('Authentication failed!');
       return { isOk: false, reason: new Error('Authentication failed') };
@@ -293,7 +293,7 @@ export default class Crunchy implements ServiceClass {
       headers: {...api.crunchyAuthHeader, Authorization: `Basic ${await this.productionToken()}`},
       body: authData
     };
-    const authReq = await this.req.getData(api.beta_auth, authReqOpts);
+    const authReq = await this.req.getData(api.auth, authReqOpts);
     if(!authReq.ok || !authReq.res){
       console.error('Anonymous Authentication failed!');
       return;
@@ -353,7 +353,7 @@ export default class Crunchy implements ServiceClass {
       headers: {...api.crunchyAuthHeader, Authorization: `Basic ${await this.productionToken()}`, Cookie: `etp_rt=${refreshToken}`},
       body: authData
     };
-    const authReq = await this.req.getData(api.beta_auth, authReqOpts);
+    const authReq = await this.req.getData(api.auth, authReqOpts);
     if(!authReq.ok || !authReq.res){
       console.error('Token Authentication failed!');
       if (authReq.res?.status == 400) {
@@ -385,7 +385,6 @@ export default class Crunchy implements ServiceClass {
       const authData = new URLSearchParams({
         'refresh_token': this.token.refresh_token,
         'grant_type': 'refresh_token',
-        //'grant_type': 'etp_rt_cookie',
         'scope': 'offline_access',
         'device_id': uuid,
         'device_name': 'iPhone',
@@ -396,7 +395,7 @@ export default class Crunchy implements ServiceClass {
         headers: {...api.crunchyAuthHeader, Authorization: `Basic ${await this.productionToken()}`, Cookie: `etp_rt=${this.token.refresh_token}`},
         body: authData
       };
-      const authReq = await this.req.getData(api.beta_auth, authReqOpts);
+      const authReq = await this.req.getData(api.auth, authReqOpts);
       if(!authReq.ok || !authReq.res){
         console.error('Token Refresh Failed!');
         if (authReq.res?.status == 400) {
@@ -1283,9 +1282,9 @@ export default class Crunchy implements ServiceClass {
       const AuthHeaders: RequestInit = {
         headers: {
           Authorization: `Bearer ${this.token.access_token}`,
-          'X-Cr-Disable-Drm': 'true',
-          'X-Cr-Enable-Drm': 'false',
-          'X-Cr-Stream-Limits': 'false',
+          // 'X-Cr-Disable-Drm': 'true',
+          // 'X-Cr-Enable-Drm': 'false',
+          // 'X-Cr-Stream-Limits': 'false',
           'User-Agent': api.defaultUserAgent
           //'X-Cr-Segment-CDN': 'all',
           //'User-Agent': 'Crunchyroll/1.8.0 Nintendo Switch/12.3.12.0 UE4/4.27'
@@ -1430,9 +1429,9 @@ export default class Crunchy implements ServiceClass {
 
       let playStream: CrunchyPlayStream | null = null;
       if (options.cstream !== 'none') {
-        const playbackReq = await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v2/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyPlayStreams[options.cstream]}/play`, AuthHeaders);
+        const playbackReq = await this.req.getData(`https://www.crunchyroll.com/playback/v2/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyPlayStreams[options.cstream]}/play`, AuthHeaders);
         if (!playbackReq.ok || !playbackReq.res) {
-          console.error('Request Stream URLs FAILED!');
+          console.warn('Request Stream URLs FAILED!');
         } else {
           playStream = await playbackReq.res.json() as CrunchyPlayStream;
           const derivedPlaystreams = {} as CrunchyStreams;
@@ -1598,11 +1597,11 @@ export default class Crunchy implements ServiceClass {
 
       // Delete the stream if it's not needed
       if (options.novids && options.noaudio) {
-        if (playStream) {
-          await this.refreshToken(true, true);
-          await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
-        }
-      }      
+        // if (playStream) {
+        //   await this.refreshToken(true, true);
+        //   await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
+        // }
+      }
 
       if(!dlFailed && curStream !== undefined){
         let streamPlaylistsReq = await this.req.getData(curStream.url, AuthHeaders);
@@ -1645,10 +1644,10 @@ export default class Crunchy implements ServiceClass {
           const streamPlaylistBody = await streamPlaylistsReq.res.text();
           if (streamPlaylistBody.match('MPD')) {
             //We have the stream, so go ahead and delete the active stream
-            if (playStream) {
-              await this.refreshToken(true, true);
-              await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
-            }
+            // if (playStream) {
+            //   await this.refreshToken(true, true);
+            //   await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
+            // }
 
             //Parse MPD Playlists
             const streamPlaylists = await parse(streamPlaylistBody, langsData.findLang(langsData.fixLanguageTag(pbData.meta.audio_locale as string) || ''), curStream.url.match(/.*\.urlset\//)[0]);
@@ -1820,63 +1819,124 @@ export default class Crunchy implements ServiceClass {
 
             //Handle Decryption if needed
             if ((chosenVideoSegments.pssh_wvd ||chosenVideoSegments.pssh_prd || chosenAudioSegments.pssh_wvd || chosenAudioSegments.pssh_prd) && (videoDownloaded || audioDownloaded)) {
-              const assetIdRegex = chosenVideoSegments.segments[0].uri.match(/\/assets\/(?:p\/)?([^_,]+)/);
-              const assetId = assetIdRegex ? assetIdRegex[1] : null;
-              const sessionId = new Date().getUTCMilliseconds().toString().padStart(3, '0') + process.hrtime.bigint().toString().slice(0, 13);
+              // Part of the old (now deprecated) DRM system
+              // const assetIdRegex = chosenVideoSegments.segments[0].uri.match(/\/assets\/(?:p\/)?([^_,]+)/);
+              // const assetId = assetIdRegex ? assetIdRegex[1] : null;
+              // const sessionId = new Date().getUTCMilliseconds().toString().padStart(3, '0') + process.hrtime.bigint().toString().slice(0, 13);
+
               console.info('Decryption Needed, attempting to decrypt');
 
-              const decReq = await this.req.getData(`${api.drm}`, {
-                'method': 'POST',
-                'body': JSON.stringify({
-                  'accounting_id': 'crunchyroll',
-                  'asset_id': assetId,
-                  'session_id': sessionId,
-                  'user_id': this.token.account_id
-                }),
-                headers: {
-                  'User-Agent': api.defaultUserAgent
-                }
-              });
-              if(!decReq.ok || !decReq.res){
-                console.error('Request to DRM Authentication failed:', decReq.error?.res.status, decReq.error?.message);
-                return undefined;
-              }
-              const authData = await decReq.res.json() as {'custom_data': string, 'token': string};
+              // Part of the old (now deprecated) DRM system
+              // const decReq = await this.req.getData(`${api.drm}`, {
+              //   'method': 'POST',
+              //   'body': JSON.stringify({
+              //     'accounting_id': 'crunchyroll',
+              //     'asset_id': assetId,
+              //     'session_id': sessionId,
+              //     'user_id': this.token.account_id
+              //   }),
+              //   headers: {
+              //     'User-Agent': api.defaultUserAgent
+              //   }
+              // });
+              // if(!decReq.ok || !decReq.res){
+              //   console.error('Request to DRM Authentication failed:', decReq.error?.res.status, decReq.error?.message);
+              //   return undefined;
+              // }
+              // const authData = await decReq.res.json() as {'custom_data': string, 'token': string};
 
-              let encryptionKeys;
+              let encryptionKeysVideo;
+              let encryptionKeysAudio;
 
+              // New Crunchyroll DRM endpoint for Widevine
               if (cdm === 'widevine') {
-                encryptionKeys = await getKeysWVD(chosenVideoSegments.pssh_wvd, 'https://lic.drmtoday.com/license-proxy-widevine/cenc/', {
-                  'dt-custom-data': authData.custom_data,
-                  'x-dt-auth-token': authData.token
+                await this.refreshToken(true, true);
+                encryptionKeysVideo = await getKeysWVD(chosenVideoSegments.pssh_wvd, api.drm_widevine, {
+                  Authorization: `Bearer ${this.token.access_token}`,
+                  'User-Agent': api.defaultUserAgent,
+                  Pragma: 'no-cache',
+                  'Cache-Control': 'no-cache',
+                  'content-type': 'application/octet-stream',
+                  'x-cr-content-id': currentVersion ? currentVersion.guid : currentMediaId,
+                  'x-cr-video-token': playStream!.token
                 });
+
+                // Check if the audio pssh is different since Crunchyroll started to have different dec keys for audio tracks
+                if (chosenAudioSegments.pssh_wvd && chosenAudioSegments.pssh_wvd !== chosenVideoSegments.pssh_wvd) {
+                  await this.refreshToken(true, true);
+                  encryptionKeysAudio = await getKeysWVD(chosenAudioSegments.pssh_wvd, api.drm_widevine, {
+                    Authorization: `Bearer ${this.token.access_token}`,
+                    'User-Agent': api.defaultUserAgent,
+                    Pragma: 'no-cache',
+                    'Cache-Control': 'no-cache',
+                    'content-type': 'application/octet-stream',
+                    'x-cr-content-id': currentVersion ? currentVersion.guid : currentMediaId,
+                    'x-cr-video-token': playStream!.token
+                  });
+                } else {
+                  encryptionKeysAudio = encryptionKeysVideo;
+                }
               }
 
-              if (cdm === 'playready') {
-                encryptionKeys = await getKeysPRD(chosenVideoSegments.pssh_prd, 'https://lic.drmtoday.com/license-proxy-headerauth/drmtoday/RightsManager.asmx', {
-                  'dt-custom-data': authData.custom_data,
-                  'x-dt-auth-token': authData.token
-                });
-              }
+              // New Crunchyroll DRM endpoint for Playready (currently broken on Crunchyrolls part and therefore disabled)
+              // if (cdm === 'playready') {
+              //   await this.refreshToken(true, true);
+              //   encryptionKeysVideo = await getKeysPRD(chosenVideoSegments.pssh_prd, api.drm_playready, {
+              //     Authorization: `Bearer ${this.token.access_token}`,
+              //     'User-Agent': api.defaultUserAgent,
+              //     Pragma: 'no-cache',
+              //     'Cache-Control': 'no-cache',
+              //     'content-type': 'application/octet-stream',
+              //     'x-cr-content-id': currentVersion ? currentVersion.guid : currentMediaId,
+              //     'x-cr-video-token': playStream!.token
+              //   });
 
-              if (!encryptionKeys || encryptionKeys.length == 0) {
+              //   // Check if the audio pssh is different since Crunchyroll started to have different dec keys for audio tracks
+              //   if (chosenAudioSegments.pssh_prd && chosenAudioSegments.pssh_prd !== chosenVideoSegments.pssh_prd) {
+              //     await this.refreshToken(true, true);
+              //     encryptionKeysAudio = await getKeysPRD(chosenAudioSegments.pssh_prd, api.drm_playready, {
+              //       Authorization: `Bearer ${this.token.access_token}`,
+              //       'User-Agent': api.defaultUserAgent,
+              //       Pragma: 'no-cache',
+              //       'Cache-Control': 'no-cache',
+              //       'content-type': 'application/octet-stream',
+              //       'x-cr-content-id': currentVersion ? currentVersion.guid : currentMediaId,
+              //       'x-cr-video-token': playStream!.token
+              //     });
+              //   } else {
+              //     encryptionKeysAudio = encryptionKeysVideo;
+              //   }
+              // }
+
+              // Part of the old (now deprecated) DRM system
+              // if (cdm === 'playready') {
+              //   encryptionKeys = await getKeysPRD(chosenVideoSegments.pssh_prd, 'https://lic.drmtoday.com/license-proxy-headerauth/drmtoday/RightsManager.asmx', {
+              //     'dt-custom-data': authData.custom_data,
+              //     'x-dt-auth-token': authData.token
+              //   });
+              // }
+
+              if (!encryptionKeysVideo || encryptionKeysVideo.length == 0 || !encryptionKeysAudio || encryptionKeysAudio.length == 0) {
                 console.error('Failed to get encryption keys');
                 return undefined;
               }
+
               /*const keys = {} as Record<string, string>;
               encryptionKeys.forEach(function(key) {
                 keys[key.kid] = key.key;
               });*/
 
               if (this.cfg.bin.mp4decrypt || this.cfg.bin.shaka) {
-                let commandBase = `--show-progress --key ${encryptionKeys[cdm === 'playready' ? 0 : 1].kid}:${encryptionKeys[cdm === 'playready' ? 0 : 1].key} `;
-                let commandVideo = commandBase+`"${tempTsFile}.video.enc.m4s" "${tempTsFile}.video.m4s"`;
-                let commandAudio = commandBase+`"${tempTsFile}.audio.enc.m4s" "${tempTsFile}.audio.m4s"`;
+                let commandBaseVideo = `--show-progress --key ${encryptionKeysVideo[cdm === 'playready' ? 0 : 1].kid}:${encryptionKeysVideo[cdm === 'playready' ? 0 : 1].key} `;
+                let commandBaseAudio = `--show-progress --key ${encryptionKeysAudio[cdm === 'playready' ? 0 : 1].kid}:${encryptionKeysAudio[cdm === 'playready' ? 0 : 1].key} `;
+                let commandVideo = commandBaseVideo+`"${tempTsFile}.video.enc.m4s" "${tempTsFile}.video.m4s"`;
+                let commandAudio = commandBaseAudio+`"${tempTsFile}.audio.enc.m4s" "${tempTsFile}.audio.m4s"`;
 
                 if (this.cfg.bin.shaka) {
-                  commandBase = ` --enable_raw_key_decryption ${encryptionKeys.map(kb => '--keys key_id='+kb.kid+':key='+kb.key).join(' ')}`;
-                  commandVideo = `input="${tempTsFile}.video.enc.m4s",stream=video,output="${tempTsFile}.video.m4s"`+commandBase;
-                  commandAudio = `input="${tempTsFile}.audio.enc.m4s",stream=audio,output="${tempTsFile}.audio.m4s"`+commandBase;
+                  commandBaseVideo = ` --enable_raw_key_decryption ${encryptionKeysVideo.map(kb => '--keys key_id='+kb.kid+':key='+kb.key).join(' ')}`;
+                  commandBaseAudio = ` --enable_raw_key_decryption ${encryptionKeysAudio.map(kb => '--keys key_id='+kb.kid+':key='+kb.key).join(' ')}`;
+                  commandVideo = `input="${tempTsFile}.video.enc.m4s",stream=video,output="${tempTsFile}.video.m4s"`+commandBaseVideo;
+                  commandAudio = `input="${tempTsFile}.audio.enc.m4s",stream=audio,output="${tempTsFile}.audio.m4s"`+commandBaseAudio;
                 }
 
                 if (videoDownloaded) {
@@ -1905,7 +1965,7 @@ export default class Crunchy implements ServiceClass {
 
                 if (audioDownloaded) {
                   console.info('Started decrypting audio,', this.cfg.bin.shaka ? 'using shaka' : 'using mp4decrypt');
-                  const decryptAudio = exec(this.cfg.bin.shaka ? 'shaka' : 'mp4decrypt', this.cfg.bin.shaka ? `"${this.cfg.bin.shaka}"` : `"${this.cfg.bin.mp4decrypt}"`, commandAudio);
+                  const decryptAudio = exec(this.cfg.bin.shaka ? 'shaka-packager' : 'mp4decrypt', this.cfg.bin.shaka ? `"${this.cfg.bin.shaka}"` : `"${this.cfg.bin.mp4decrypt}"`, commandAudio);
                   if (!decryptAudio.isOk) {
                     console.error(decryptAudio.err);
                     console.error(`Decryption failed with exit code ${decryptAudio.err.code}`);
@@ -1927,7 +1987,7 @@ export default class Crunchy implements ServiceClass {
                   }
                 }
               } else {
-                console.warn('mp4decrypt/shaka not found, files need decryption. Decryption Keys:', encryptionKeys);
+                console.warn('mp4decrypt/shaka not found, files need decryption. Decryption Keys:', encryptionKeysVideo, encryptionKeysAudio);
               }
             } else {
               if (videoDownloaded) {
@@ -2060,10 +2120,10 @@ export default class Crunchy implements ServiceClass {
                 dlFailed = true;
               } else {
                 // We have the stream, so go ahead and delete the active stream
-                if (playStream) {
-                  await this.refreshToken(true, true);
-                  await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
-                }
+                // if (playStream) {
+                //   await this.refreshToken(true, true);
+                //   await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
+                // }
 
                 const chunkPageBody = await chunkPage.res.text();
                 const chunkPlaylist = m3u8(chunkPageBody);
@@ -2412,7 +2472,7 @@ export default class Crunchy implements ServiceClass {
 
     for (const key of Object.keys(sortedEpisodes)) {
       const item = sortedEpisodes[key];
-      console.info(`[${key}] ${
+      console.info(`[${key}] [${item.items[0].upload_date ? new Date(item.items[0].upload_date).toISOString().slice(0, 10) : '0000-00-00'}] ${
         item.items.find(a => !a.season_title.match(/\(\w+ Dub\)/))?.season_title ?? item.items[0].season_title.replace(/\(\w+ Dub\)/g, '').trimEnd()
       } - Season ${item.items[0].season_number} - ${item.items[0].title} [${
         item.items.map((a, index) => {
@@ -2689,7 +2749,8 @@ export default class Crunchy implements ServiceClass {
       'grant_type': 'password',
       'scope': 'offline_access',
       'device_id': uuid,
-      'device_type': 'Chrome on Windows'
+      'device_name': 'iPhone',
+      'device_type': 'iPhone 13'
     }).toString();
     const authReqOpts: reqModule.Params = {
       method: 'POST',
@@ -2697,7 +2758,7 @@ export default class Crunchy implements ServiceClass {
       body: authData
     };
     
-    const authReq = await this.req.getData(api.beta_auth, authReqOpts);
+    const authReq = await this.req.getData(api.auth, authReqOpts);
     if(!authReq.ok || !authReq.res){
       return Promise.reject(new Error('Authentication failed'));
     }
