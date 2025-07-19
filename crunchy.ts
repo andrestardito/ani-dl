@@ -2782,8 +2782,9 @@ export default class Crunchy implements ServiceClass {
    * @param options las opciones de descarga. No puede ser null.
    */
   public async downloadSeason(serieId: string, seasonId: string, options: CrunchyDownloadOptions) {
-    const seasons = await this.getSeasons(serieId);
     const dubLang = options.defaultAudio.code;
+
+    const seasons = await this.getSeasons(serieId, dubLang);
     const season = this.findSeasonById(seasons, seasonId, dubLang);
 
     const episodes = await this.getEpisodesBySeason(season);
@@ -2920,7 +2921,7 @@ export default class Crunchy implements ServiceClass {
    * @returns {Promise} la ultima temporada con sus episodios.
    */
   public async getLastSeason(serieId: string, correctLastSeasonId: string, dubLang: string = "jpn"): Promise<{}> {
-    const seasons = await this.getSeasons(serieId);
+    const seasons = await this.getSeasons(serieId, dubLang);
     let lastSeasonCR = Object.values(seasons).sort((seasonA, seasonB) => seasonA[dubLang].season_number - seasonB[dubLang].season_number).pop();
     if (lastSeasonCR == undefined) {
       return Promise.reject(new Error("No se pudo obtener la ultima temporada."))
@@ -2952,7 +2953,7 @@ export default class Crunchy implements ServiceClass {
    * @returns {Promise} la temporada con sus episodios.
    */
    public async getSeason(serieId: string, seasonId: string, dubLang: string = "jpn"): Promise<{}> {
-    const seasons = await this.getSeasons(serieId);
+    const seasons = await this.getSeasons(serieId, dubLang);
 
     const season = this.findSeasonById(seasons, seasonId, dubLang);
 
@@ -2983,16 +2984,18 @@ export default class Crunchy implements ServiceClass {
   /** Obtiene las temporadas de una serie segun su ID.
    * 
    * @param serieId el id de la serie.
+   * 
+   * @param dubLang idioma del audio. Por defecto es "jpn" (Japones).
    *
    * @returns la lista de temporadas de la serie, sin los episodios.
    */
-  public async getSeasons(serieId: string) {
+  public async getSeasons(serieId: string, dubLang: string = "jpn") {
     const serieSearch = await this.parseSeriesById(serieId);
     if (!serieSearch) {
       throw new Error("No se pudo parsear la serie: " + serieId);
     }
 
-    return this.filterSeasons(serieSearch);
+    return this.filterSeasons(serieSearch, dubLang);
   }
 
   /** Filtra la lista de temporadas segun el lenguaje de audio japones.
@@ -3001,18 +3004,20 @@ export default class Crunchy implements ServiceClass {
    * 
    * @param seasonsList la lista de temporadas sin procesar.
    *
+   * @param dubLang idioma del audio. Por defecto es "jpn" (Japones).
+   *
    * @returns la lista de temporadas filtrada por el lenguaje de audio japones.
    */
-  private filterSeasons (seasonsList: SeriesSearch) : Record<string, Record<string, SeriesSearchItem>> {
+  private filterSeasons (seasonsList: SeriesSearch, dubLang: string = "jpn") : Record<string, Record<string, SeriesSearchItem>> {
     const ret: Record<string, Record<string, SeriesSearchItem>> = {};
-    const langCode = "jpn";
+    const language = langsData.languages.find(a => a.code == dubLang) as langsData.LanguageItem;
 
     for (const item of seasonsList.data) {
       // Si está subtitulado y no tiene doblaje, es porque el lenguaje es nativo, es decir japones.
       // En ocasiones no alcanza porque dejan mal configurada la temporada y se verifica con el audio_locale.
-      if ((item.is_subbed && !item.is_dubbed) || item.audio_locale == "ja-JP") {
+      if ((item.is_subbed && !item.is_dubbed) || item.audio_locale == language.cr_locale) {
         ret[item.id] = {};
-        ret[item.id][langCode] = item;
+        ret[item.id][dubLang] = item;
       }
     }
 
