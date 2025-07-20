@@ -7,10 +7,9 @@ import packageJson from './package.json';
 
 // plugins
 import { console } from './modules/log';
-import shlp from 'sei-helper';
 import m3u8 from 'm3u8-parsed';
 import streamdl, { M3U8Json } from './modules/hls-download';
-import { exec } from './modules/sei-helper-fixes';
+import Helper from './modules/module.helper';
 
 // custom modules
 import * as fontsData from './modules/module.fontsData';
@@ -95,8 +94,8 @@ export default class Crunchy implements ServiceClass {
     // select mode
     if (argv.silentAuth && !argv.auth) {
       await this.doAuth({
-        username: argv.username ?? await shlp.question('[Q] LOGIN/EMAIL'),
-        password: argv.password ?? await shlp.question('[Q] PASSWORD   ')
+        username: argv.username ?? await Helper.question('[Q] LOGIN/EMAIL: '),
+        password: argv.password ?? await Helper.question('[Q] PASSWORD: ')
       });
     }
     if(argv.dlFonts){
@@ -104,8 +103,8 @@ export default class Crunchy implements ServiceClass {
     }
     else if(argv.auth){
       await this.doAuth({
-        username: argv.username ?? await shlp.question('[Q] LOGIN/EMAIL'),
-        password: argv.password ?? await shlp.question('[Q] PASSWORD   ')
+        username: argv.username ?? await Helper.question('[Q] LOGIN/EMAIL: '),
+        password: argv.password ?? await Helper.question('[Q] PASSWORD: ')
       });
     }
     else if (argv.token) {
@@ -140,6 +139,18 @@ export default class Crunchy implements ServiceClass {
     else if(argv['movie-listing'] && argv['movie-listing'].match(/^[0-9A-Z]{9}$/)){
       await this.refreshToken();
       await this.logMovieListingById(argv['movie-listing'] as string);
+    }
+    else if(argv['show-raw'] && argv['show-raw'].match(/^[0-9A-Z]{9}$/)){
+      await this.refreshToken();
+      await this.logShowRawById(argv['show-raw'] as string);
+    }
+    else if(argv['season-raw'] && argv['season-raw'].match(/^[0-9A-Z]{9}$/)){
+      await this.refreshToken();
+      await this.logSeasonRawById(argv['season-raw'] as string);
+    }
+    else if(argv['show-list-raw']){
+      await this.refreshToken();
+      await this.logShowListRaw();
     }
     else if(argv.s && argv.s.match(/^[0-9A-Z]{9}$/)){
       await this.refreshToken();
@@ -192,6 +203,173 @@ export default class Crunchy implements ServiceClass {
     }
   }
 
+  public async logShowRawById(id: string){
+    // check token
+    if(!this.cmsToken.cms){
+      console.error('Authentication required!');
+      return;
+    }
+    // opts
+    const AuthHeaders = {
+      headers: {
+        Authorization: `Bearer ${this.token.access_token}`,
+        ...api.crunchyDefHeader
+      },
+      useProxy: true
+    };
+    // seasons list
+    const seriesSeasonListReq = await this.req.getData(`${api.cms}/series/${id}/seasons?force_locale=&preferred_audio_language=ja-JP&locale=${this.locale}`, AuthHeaders);
+    if(!seriesSeasonListReq.ok || !seriesSeasonListReq.res){
+      console.error('Series Request FAILED!');
+      return;
+    }
+    const seriesData = await seriesSeasonListReq.res.json();
+    for (const item of seriesData.data) {
+      // stringify each object, then a newline
+      console.log(JSON.stringify(item));
+    }
+    return seriesData.data;
+  }
+
+
+  public async logSeasonRawById(id: string){
+    // check token
+    if(!this.cmsToken.cms){
+      console.error('Authentication required!');
+      return;
+    }
+    // opts
+    const AuthHeaders = {
+      headers: {
+        Authorization: `Bearer ${this.token.access_token}`,
+        ...api.crunchyDefHeader
+      },
+      useProxy: true
+    };
+    // seasons list
+    let episodeList = { total: 0, data: [], meta: {} } as CrunchyEpisodeList;
+    //get episode info
+    if (this.api == 'android') {
+      const reqEpsListOpts = [
+        api.beta_cms,
+        this.cmsToken.cms.bucket,
+        '/episodes?',
+        new URLSearchParams({
+          'force_locale': '',
+          'preferred_audio_language': 'ja-JP',
+          'locale': this.locale,
+          'season_id': id,
+          'Policy': this.cmsToken.cms.policy,
+          'Signature': this.cmsToken.cms.signature,
+          'Key-Pair-Id': this.cmsToken.cms.key_pair_id,
+        }),
+      ].join('');
+      const reqEpsList = await this.req.getData(reqEpsListOpts, AuthHeaders);
+      if(!reqEpsList.ok || !reqEpsList.res){
+        console.error('Episode List Request FAILED!');
+        return { isOk: false, reason: new Error('Episode List request failed. No more information provided.') };
+      }
+      //CrunchyEpisodeList
+      const episodeListAndroid = await reqEpsList.res.json() as CrunchyAndroidEpisodes;
+      episodeList = {
+        total: episodeListAndroid.total,
+        data: episodeListAndroid.items,
+        meta: {}
+      };
+    } else {
+      const reqEpsList = await this.req.getData(`${api.cms}/seasons/${id}/episodes?force_locale=&preferred_audio_language=ja-JP&locale=${this.locale}`, AuthHeaders);
+      if(!reqEpsList.ok || !reqEpsList.res){
+        console.error('Episode List Request FAILED!');
+        return { isOk: false, reason: new Error('Episode List request failed. No more information provided.') };
+      }
+      //CrunchyEpisodeList
+      episodeList = await reqEpsList.res.json() as CrunchyEpisodeList;
+
+
+    }
+    for (const item of episodeList.data) {
+      // stringify each object, then a newline
+      console.log(JSON.stringify(item));
+    }
+
+    // Return the data directly if this function is called by other code
+    return episodeList.data;
+  }
+
+  public async logShowListRaw() {
+    // check token
+    if(!this.cmsToken.cms){
+      console.error('Authentication required!');
+      return;
+    }
+
+    // opts
+    const AuthHeaders = {
+      headers: {
+        Authorization: `Bearer ${this.token.access_token}`,
+        ...api.crunchyDefHeader
+      },
+      useProxy: true
+    };
+
+    const allShows: any[] = [];
+    let page = 1;
+    let hasMorePages = true;
+
+    if(this.debug){
+      console.info('Retrieving complete show list...');
+    }
+
+    while (hasMorePages) {
+      const searchStart = (page - 1) * 50;
+      const params = new URLSearchParams({
+        'preferred_audio_language': 'ja-JP',
+        'locale': this.locale,
+        'ratings': 'true',
+        'sort_by': 'alphabetical',
+        'n': '50',
+        'start': searchStart.toString()
+      }).toString();
+
+      const showListReq = await this.req.getData(`${api.browse_all_series}?${params}`, AuthHeaders);
+
+      if (!showListReq.ok || !showListReq.res) {
+        console.error(`Show List Request FAILED on page ${page}!`);
+        return allShows;
+      }
+
+      const showListData = await showListReq.res.json();
+
+      // Add current page data
+      for (const item of showListData.data) {
+        // stringify each object, then a newline
+        console.log(JSON.stringify(item));
+        allShows.push(item);
+      }
+
+      // Calculate pagination info
+      const totalItems = showListData.total;
+      const totalPages = Math.ceil(totalItems / 50);
+      if(this.debug){
+        console.info(`Retrieved page ${page}/${totalPages} (${allShows.length}/${totalItems} items)`);
+      }
+
+      // Check if we need to fetch more pages
+      if (page >= totalPages) {
+        hasMorePages = false;
+      } else {
+        page++;
+        // Add a small delay to avoid rate limiting
+        await this.sleep(1000);
+      }
+    }
+
+    if(this.debug){
+      console.info(`Complete show list retrieved: ${allShows.length} items`);
+    }
+    return allShows;
+  }
+
   public async getFonts() {
     console.info('Downloading fonts...');
     const fonts = Object.values(fontsData.fontFamilies).reduce((pre, curr) => pre.concat(curr));
@@ -213,9 +391,7 @@ export default class Crunchy implements ServiceClass {
         }
         const fontUrl = fontsData.root + f;
         const getFont = await this.req.getData(fontUrl, {
-          headers: {
-            'User-Agent': api.defaultUserAgent
-          }
+          headers: api.crunchyDefHeader
         });
         if(getFont.ok && getFont.res){
           fs.writeFileSync(fontLoc, Buffer.from(await getFont.res.arrayBuffer()));
@@ -270,6 +446,17 @@ export default class Crunchy implements ServiceClass {
       console.error('Authentication failed!');
       return { isOk: false, reason: new Error('Authentication failed') };
     }
+    // To prevent any Cloudflare errors in the future
+    if (authReq.res.headers.get('Set-Cookie')) {
+      api.crunchyDefHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
+      api.crunchyAuthHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
+    }
+    if (authReq.headers && authReq.headers['Set-Cookie']) {
+      api.crunchyDefHeader['Cookie'] = authReq.headers['Set-Cookie'];
+      api.crunchyAuthHeader['Cookie'] = authReq.headers['Set-Cookie'];
+      api.crunchyDefHeader['User-Agent'] = authReq.headers['User-Agent'];
+      api.crunchyAuthHeader['User-Agent'] = authReq.headers['User-Agent'];
+    }
     this.token = await authReq.res.json();
     this.token.device_id = uuid;
     this.token.expires = new Date(Date.now() + this.token.expires_in);
@@ -298,6 +485,17 @@ export default class Crunchy implements ServiceClass {
       console.error('Anonymous Authentication failed!');
       return;
     }
+    // To prevent any Cloudflare errors in the future
+    if (authReq.res.headers.get('Set-Cookie')) {
+      api.crunchyDefHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
+      api.crunchyAuthHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
+    }
+    if (authReq.headers && authReq.headers['Set-Cookie']) {
+      api.crunchyDefHeader['Cookie'] = authReq.headers['Set-Cookie'];
+      api.crunchyAuthHeader['Cookie'] = authReq.headers['Set-Cookie'];
+      api.crunchyDefHeader['User-Agent'] = authReq.headers['User-Agent'];
+      api.crunchyAuthHeader['User-Agent'] = authReq.headers['User-Agent'];
+    }
     this.token = await authReq.res.json();
     this.token.device_id = uuid;
     this.token.expires = new Date(Date.now() + this.token.expires_in);
@@ -317,8 +515,8 @@ export default class Crunchy implements ServiceClass {
     }
     const profileReqOptions = {
       headers: {
-        Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader,
+        Authorization: `Bearer ${this.token.access_token}`
       },
       useProxy: true
     };
@@ -361,6 +559,17 @@ export default class Crunchy implements ServiceClass {
       }
       return;
     }
+    // To prevent any Cloudflare errors in the future
+    if (authReq.res.headers.get('Set-Cookie')) {
+      api.crunchyDefHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
+      api.crunchyAuthHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
+    }
+    if (authReq.headers && authReq.headers['Set-Cookie']) {
+      api.crunchyDefHeader['Cookie'] = authReq.headers['Set-Cookie'];
+      api.crunchyAuthHeader['Cookie'] = authReq.headers['Set-Cookie'];
+      api.crunchyDefHeader['User-Agent'] = authReq.headers['User-Agent'];
+      api.crunchyAuthHeader['User-Agent'] = authReq.headers['User-Agent'];
+    }
     this.token = await authReq.res.json();
     this.token.device_id = uuid;
     this.token.expires = new Date(Date.now() + this.token.expires_in);
@@ -392,7 +601,7 @@ export default class Crunchy implements ServiceClass {
       }).toString();
       const authReqOpts: reqModule.Params = {
         method: 'POST',
-        headers: {...api.crunchyAuthHeader, Authorization: `Basic ${await this.productionToken()}`, Cookie: `etp_rt=${this.token.refresh_token}`},
+        headers: {...api.crunchyAuthHeader, Authorization: `Basic ${await this.productionToken()}`},
         body: authData
       };
       const authReq = await this.req.getData(api.auth, authReqOpts);
@@ -402,6 +611,17 @@ export default class Crunchy implements ServiceClass {
           console.warn('Token is likely wrong, please login again!');
         }
         return;
+      }
+      // To prevent any Cloudflare errors in the future
+      if (authReq.res.headers.get('Set-Cookie')) {
+        api.crunchyDefHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
+        api.crunchyAuthHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
+      }
+      if (authReq.headers && authReq.headers['Set-Cookie']) {
+        api.crunchyDefHeader['Cookie'] = authReq.headers['Set-Cookie'];
+        api.crunchyAuthHeader['Cookie'] = authReq.headers['Set-Cookie'];
+        api.crunchyDefHeader['User-Agent'] = authReq.headers['User-Agent'];
+        api.crunchyAuthHeader['User-Agent'] = authReq.headers['User-Agent'];
       }
       this.token = await authReq.res.json();
       this.token.device_id = uuid;
@@ -431,7 +651,7 @@ export default class Crunchy implements ServiceClass {
     const cmsTokenReqOpts = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };
@@ -484,7 +704,7 @@ export default class Crunchy implements ServiceClass {
     const searchReqOpts = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };
@@ -615,7 +835,7 @@ export default class Crunchy implements ServiceClass {
 
     // set object booleans
     if(iMetadata.duration_ms){
-      oBooleans.push(shlp.formatTime(iMetadata.duration_ms/1000));
+      oBooleans.push(Helper.formatTime(iMetadata.duration_ms/1000));
     }
     if(iMetadata.is_simulcast) {
       oBooleans.push('SIMULCAST');
@@ -752,7 +972,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };
@@ -794,7 +1014,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };
@@ -834,7 +1054,7 @@ export default class Crunchy implements ServiceClass {
     const newlyAddedReqOpts = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };
@@ -869,7 +1089,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };
@@ -1106,7 +1326,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };
@@ -1282,12 +1502,7 @@ export default class Crunchy implements ServiceClass {
       const AuthHeaders: RequestInit = {
         headers: {
           Authorization: `Bearer ${this.token.access_token}`,
-          // 'X-Cr-Disable-Drm': 'true',
-          // 'X-Cr-Enable-Drm': 'false',
-          // 'X-Cr-Stream-Limits': 'false',
-          'User-Agent': api.defaultUserAgent
-          //'X-Cr-Segment-CDN': 'all',
-          //'User-Agent': 'Crunchyroll/1.8.0 Nintendo Switch/12.3.12.0 UE4/4.27'
+          ...api.crunchyDefHeader
         }
       };
       
@@ -1318,17 +1533,13 @@ export default class Crunchy implements ServiceClass {
       if (options.chapters) {
         //Make Chapter Request
         const chapterRequest = await this.req.getData(`https://static.crunchyroll.com/skip-events/production/${currentMediaId}.json`, {
-          headers: {
-            'User-Agent': api.defaultUserAgent
-          }
+          headers: api.crunchyDefHeader
         });
         if(!chapterRequest.ok || !chapterRequest.res){
         //Old Chapter Request Fallback
           console.warn('Chapter request failed, attempting old API');
           const oldChapterRequest = await this.req.getData(`https://static.crunchyroll.com/datalab-intro-v2/${currentMediaId}.json`, {
-            headers: {
-              'User-Agent': api.defaultUserAgent
-            }
+            headers: api.crunchyDefHeader
           });
           if(!oldChapterRequest.ok || !oldChapterRequest.res) {
             console.warn('Old Chapter API request failed');
@@ -1349,12 +1560,12 @@ export default class Crunchy implements ServiceClass {
             if (chapterData.startTime > 1) {
               compiledChapters.push(
                 `CHAPTER${(compiledChapters.length/2)+1}=00:00:00.00`,
-                `CHAPTER${(compiledChapters.length/2)+1}NAME=Prologue`
+                `CHAPTER${(compiledChapters.length/2)+1}NAME=Episode`
               );
             }
             compiledChapters.push(
               `CHAPTER${(compiledChapters.length/2)+1}=${startFormatted}`,
-              `CHAPTER${(compiledChapters.length/2)+1}NAME=Opening`
+              `CHAPTER${(compiledChapters.length/2)+1}NAME=Intro`
             );
             compiledChapters.push(
               `CHAPTER${(compiledChapters.length/2)+1}=${endFormatted}`,
@@ -1377,7 +1588,8 @@ export default class Crunchy implements ServiceClass {
           if (chapters.length > 0) {
             chapters.sort((a, b) => a.start - b.start);
             //Check if chapters has an intro
-            if (!(chapters.find(c => c.type === 'intro') || chapters.find(c => c.type === 'recap'))) {
+            //if (!(chapters.find(c => c.type === 'intro') || chapters.find(c => c.type === 'recap'))) {
+            if (!(chapters.find(c => c.type === 'intro'))) {
               compiledChapters.push(
                 `CHAPTER${(compiledChapters.length/2)+1}=00:00:00.00`,
                 `CHAPTER${(compiledChapters.length/2)+1}NAME=Episode`
@@ -1393,32 +1605,52 @@ export default class Crunchy implements ServiceClass {
               endTime.setSeconds(chapter.end);
               const startFormatted = startTime.toISOString().substring(11, 19)+'.00';
               const endFormatted = endTime.toISOString().substring(11, 19)+'.00';
-            
+              //Find the max start time from the chapters
+              const maxStart = Math.max(
+                ...chapters
+                  .map(obj => obj.start)
+                  .filter((start): start is number => start !== null && start !== undefined)
+              );
+              //We need the duration of the ep
+              let epDuration: number | undefined;
+              const epiMeta = await this.req.getData(`${api.cms}/objects/${currentMediaId}?force_locale=&preferred_audio_language=ja-JP&locale=${this.locale}`, AuthHeaders);
+              if(!epiMeta.ok || !epiMeta.res){
+                epDuration = 7200;
+              } else {
+                epDuration = Math.floor((await epiMeta.res.json()).data[0].episode_metadata.duration_ms / 1000 - 3);
+              }
+
               //Push generated chapters
               if (chapter.type == 'intro') {
                 if (chapter.start > 0) {
                   compiledChapters.push(
                     `CHAPTER${(compiledChapters.length/2)+1}=00:00:00.00`,
-                    `CHAPTER${(compiledChapters.length/2)+1}NAME=Prologue`
+                    `CHAPTER${(compiledChapters.length/2)+1}NAME=Episode`
                   );
                 }
                 compiledChapters.push(
                   `CHAPTER${(compiledChapters.length/2)+1}=${startFormatted}`,
-                  `CHAPTER${(compiledChapters.length/2)+1}NAME=Opening`
+                  `CHAPTER${(compiledChapters.length/2)+1}NAME=${chapter.type.charAt(0).toUpperCase() + chapter.type.slice(1)}`
                 );
-                compiledChapters.push(
-                  `CHAPTER${(compiledChapters.length/2)+1}=${endFormatted}`,
-                  `CHAPTER${(compiledChapters.length/2)+1}NAME=Episode`
-                );
+                if (chapter.end < epDuration && chapter.end != maxStart) {
+                  compiledChapters.push(
+                    `CHAPTER${(compiledChapters.length/2)+1}=${endFormatted}`,
+                    `CHAPTER${(compiledChapters.length/2)+1}NAME=Episode`
+                  );
+                }
               } else {
-                compiledChapters.push(
-                  `CHAPTER${(compiledChapters.length/2)+1}=${startFormatted}`,
-                  `CHAPTER${(compiledChapters.length/2)+1}NAME=${chapter.type.charAt(0).toUpperCase() + chapter.type.slice(1)} Start`
-                );
-                compiledChapters.push(
-                  `CHAPTER${(compiledChapters.length/2)+1}=${endFormatted}`,
-                  `CHAPTER${(compiledChapters.length/2)+1}NAME=${chapter.type.charAt(0).toUpperCase() + chapter.type.slice(1)} End`
-                );
+                if (chapter.type !== 'recap') {
+                  compiledChapters.push(
+                    `CHAPTER${(compiledChapters.length/2)+1}=${startFormatted}`,
+                    `CHAPTER${(compiledChapters.length/2)+1}NAME=${chapter.type.charAt(0).toUpperCase() + chapter.type.slice(1)}`
+                  );
+                  if (chapter.end < epDuration && chapter.end != maxStart) {
+                    compiledChapters.push(
+                      `CHAPTER${(compiledChapters.length/2)+1}=${endFormatted}`,
+                      `CHAPTER${(compiledChapters.length/2)+1}NAME=Episode`
+                    );
+                  }
+                }
               }
             }
           }
@@ -1597,10 +1829,10 @@ export default class Crunchy implements ServiceClass {
 
       // Delete the stream if it's not needed
       if (options.novids && options.noaudio) {
-        // if (playStream) {
-        //   await this.refreshToken(true, true);
-        //   await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
-        // }
+        if (playStream) {
+          await this.refreshToken(true, true);
+          await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
+        }
       }
 
       if(!dlFailed && curStream !== undefined){
@@ -1643,12 +1875,6 @@ export default class Crunchy implements ServiceClass {
         } else {
           const streamPlaylistBody = await streamPlaylistsReq.res.text();
           if (streamPlaylistBody.match('MPD')) {
-            //We have the stream, so go ahead and delete the active stream
-            // if (playStream) {
-            //   await this.refreshToken(true, true);
-            //   await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
-            // }
-
             //Parse MPD Playlists
             const streamPlaylists = await parse(streamPlaylistBody, langsData.findLang(langsData.fixLanguageTag(pbData.meta.audio_locale as string) || ''), curStream.url.match(/.*\.urlset\//)[0]);
 
@@ -1853,7 +2079,7 @@ export default class Crunchy implements ServiceClass {
                 await this.refreshToken(true, true);
                 encryptionKeysVideo = await getKeysWVD(chosenVideoSegments.pssh_wvd, api.drm_widevine, {
                   Authorization: `Bearer ${this.token.access_token}`,
-                  'User-Agent': api.defaultUserAgent,
+                  ...api.crunchyDefHeader,
                   Pragma: 'no-cache',
                   'Cache-Control': 'no-cache',
                   'content-type': 'application/octet-stream',
@@ -1866,7 +2092,7 @@ export default class Crunchy implements ServiceClass {
                   await this.refreshToken(true, true);
                   encryptionKeysAudio = await getKeysWVD(chosenAudioSegments.pssh_wvd, api.drm_widevine, {
                     Authorization: `Bearer ${this.token.access_token}`,
-                    'User-Agent': api.defaultUserAgent,
+                    ...api.crunchyDefHeader,
                     Pragma: 'no-cache',
                     'Cache-Control': 'no-cache',
                     'content-type': 'application/octet-stream',
@@ -1876,6 +2102,11 @@ export default class Crunchy implements ServiceClass {
                 } else {
                   encryptionKeysAudio = encryptionKeysVideo;
                 }
+              }
+
+              if (playStream) {
+                await this.refreshToken(true, true);
+                await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
               }
 
               // New Crunchyroll DRM endpoint for Playready (currently broken on Crunchyrolls part and therefore disabled)
@@ -1941,7 +2172,7 @@ export default class Crunchy implements ServiceClass {
 
                 if (videoDownloaded) {
                   console.info('Started decrypting video,', this.cfg.bin.shaka ? 'using shaka' : 'using mp4decrypt');
-                  const decryptVideo = exec(this.cfg.bin.shaka ? 'shaka-packager' : 'mp4decrypt', this.cfg.bin.shaka ? `"${this.cfg.bin.shaka}"` : `"${this.cfg.bin.mp4decrypt}"`, commandVideo);
+                  const decryptVideo = Helper.exec(this.cfg.bin.shaka ? 'shaka-packager' : 'mp4decrypt', this.cfg.bin.shaka ? `"${this.cfg.bin.shaka}"` : `"${this.cfg.bin.mp4decrypt}"`, commandVideo);
                   if (!decryptVideo.isOk) {
                     console.error(decryptVideo.err);
                     console.error(`Decryption failed with exit code ${decryptVideo.err.code}`);
@@ -1965,7 +2196,7 @@ export default class Crunchy implements ServiceClass {
 
                 if (audioDownloaded) {
                   console.info('Started decrypting audio,', this.cfg.bin.shaka ? 'using shaka' : 'using mp4decrypt');
-                  const decryptAudio = exec(this.cfg.bin.shaka ? 'shaka-packager' : 'mp4decrypt', this.cfg.bin.shaka ? `"${this.cfg.bin.shaka}"` : `"${this.cfg.bin.mp4decrypt}"`, commandAudio);
+                  const decryptAudio = Helper.exec(this.cfg.bin.shaka ? 'shaka-packager' : 'mp4decrypt', this.cfg.bin.shaka ? `"${this.cfg.bin.shaka}"` : `"${this.cfg.bin.mp4decrypt}"`, commandAudio);
                   if (!decryptAudio.isOk) {
                     console.error(decryptAudio.err);
                     console.error(`Decryption failed with exit code ${decryptAudio.err.code}`);
@@ -2111,19 +2342,17 @@ export default class Crunchy implements ServiceClass {
               const outFile = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
               console.info(`Output filename: ${outFile}`);
               const chunkPage = await this.req.getData(selPlUrl, {
-                headers: {
-                  'User-Agent': api.defaultUserAgent
-                }
+                headers: api.crunchyDefHeader,
               });
               if(!chunkPage.ok || !chunkPage.res){
                 console.error('CAN\'T FETCH VIDEO PLAYLIST!');
                 dlFailed = true;
               } else {
                 // We have the stream, so go ahead and delete the active stream
-                // if (playStream) {
-                //   await this.refreshToken(true, true);
-                //   await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
-                // }
+                if (playStream) {
+                  await this.refreshToken(true, true);
+                  await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${playStream.token}`, {...{method: 'DELETE'}, ...AuthHeaders});
+                }
 
                 const chunkPageBody = await chunkPage.res.text();
                 const chunkPlaylist = m3u8(chunkPageBody);
@@ -2263,9 +2492,7 @@ export default class Crunchy implements ServiceClass {
               continue;
             if(options.dlsubs.includes('all') || options.dlsubs.includes(langItem.locale)){
               const subsAssReq = await this.req.getData(subsItem.url, {
-                headers: {
-                  'User-Agent': api.defaultUserAgent
-                }
+                headers: api.crunchyDefHeader
               });
               if(subsAssReq.ok && subsAssReq.res){
                 let sBody = await subsAssReq.res.text();
@@ -2472,7 +2699,8 @@ export default class Crunchy implements ServiceClass {
 
     for (const key of Object.keys(sortedEpisodes)) {
       const item = sortedEpisodes[key];
-      console.info(`[${key}] [${item.items[0].upload_date ? new Date(item.items[0].upload_date).toISOString().slice(0, 10) : '0000-00-00'}] ${
+      const epNum = key.startsWith('E') ? (`E${data?.absolute ? (item.items[0].episode_number?.toString() || item.items[0].episode) : key.slice(1)}`) : key;
+      console.info(`[${data?.absolute ? epNum : key}] [${item.items[0].upload_date ? new Date(item.items[0].upload_date).toISOString().slice(0, 10) : '0000-00-00'}] ${
         item.items.find(a => !a.season_title.match(/\(\w+ Dub\)/))?.season_title ?? item.items[0].season_title.replace(/\(\w+ Dub\)/g, '').trimEnd()
       } - Season ${item.items[0].season_number} - ${item.items[0].title} [${
         item.items.map((a, index) => {
@@ -2488,8 +2716,14 @@ export default class Crunchy implements ServiceClass {
     return { data: sortedEpisodes, list: Object.entries(sortedEpisodes).map(([key, value]) => {
       const images = (value.items[0].images.thumbnail ?? [[ { source: '/notFound.png' } ]])[0];
       const seconds = Math.floor(value.items[0].duration_ms / 1000);
+      let epNum;
+      if (data?.absolute) {
+        epNum = value.items[0].episode_number !== null && value.items[0].episode_number !== undefined ? value.items[0].episode_number.toString() : (value.items[0].episode !== null && value.items[0].episode !== undefined ? value.items[0].episode : (key.startsWith('E') ? key.slice(1) : key));
+      } else {
+        epNum = key.startsWith('E') ? key.slice(1) : key;
+      }
       return {
-        e: key.startsWith('E') ? key.slice(1) : key,
+        e: epNum,
         lang: value.langs.map(a => a?.code),
         name: value.items[0].title,
         season: value.items[0].season_number.toString(),
@@ -2509,7 +2743,7 @@ export default class Crunchy implements ServiceClass {
     console.info('');
     console.info('-'.repeat(30));
     console.info('');
-    const selected = this.itemSelectMultiDub(episodes, data.dubLang, data.but, data.all, data.e);
+    const selected = this.itemSelectMultiDub(episodes, data.dubLang, data.but, data.all, data.e, data.absolute);
     for (const key of Object.keys(selected)) {
       const item = selected[key];
       console.info(`[S${item.season}E${item.episodeNumber}] - ${item.episodeTitle} [${
@@ -2524,7 +2758,7 @@ export default class Crunchy implements ServiceClass {
   public itemSelectMultiDub (eps: Record<string, {
     items: CrunchyEpisode[],
     langs: langsData.LanguageItem[]
-  }>, dubLang: string[], but?: boolean, all?: boolean, e?: string, ) {
+  }>, dubLang: string[], but?: boolean, all?: boolean, e?: string, absolute?: boolean) {
     const doEpsFilter = parseSelect(e as string);
 
     const ret: Record<string, CrunchyEpMeta> = {};
@@ -2545,7 +2779,13 @@ export default class Crunchy implements ServiceClass {
           item.series_title = 'NO_TITLE';
         }
 
-        const epNum = key.startsWith('E') ? key.slice(1) : key;
+        let epNum;
+        if (absolute) {
+          epNum = item.episode_number !== null && item.episode_number !== undefined ? item.episode_number.toString() : (item.episode !== null && item.episode !== undefined ? item.episode : (key.startsWith('E') ? key.slice(1) : key));
+        } else {
+          epNum = key.startsWith('E') ? key.slice(1) : key;
+        }
+
         // set data
         const images = (item.images.thumbnail ?? [[ { source: '/notFound.png' } ]])[0];
         const epMeta: CrunchyEpMeta = {
@@ -2579,7 +2819,7 @@ export default class Crunchy implements ServiceClass {
             item.playback = item.streams_link;
           }
         }
-        // find episode numbers
+
         if(item.playback && ((but && !doEpsFilter.isSelected([epNum, item.id])) || (all || (doEpsFilter.isSelected([epNum, item.id])) && !but))) {
           if (Object.prototype.hasOwnProperty.call(ret, key)) {
             const epMe = ret[key];
@@ -2638,7 +2878,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };
@@ -2667,7 +2907,7 @@ export default class Crunchy implements ServiceClass {
     const AuthHeaders = {
       headers: {
         Authorization: `Bearer ${this.token.access_token}`,
-        'User-Agent': api.defaultUserAgent
+        ...api.crunchyDefHeader
       },
       useProxy: true
     };

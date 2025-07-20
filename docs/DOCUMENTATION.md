@@ -1,4 +1,4 @@
-# multi-downloader-nx (v5.4.1)
+# multi-downloader-nx (v5.4.9)
 
 If you find any bugs in this documentation or in the program itself please report it [over on GitHub](https://github.com/anidl/multi-downloader-nx/issues).
 
@@ -93,12 +93,36 @@ Set the local that will be used for the API.
 
 Get last updated series list
 ### Downloading
+#### `--absolute`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
+| --- | --- | --- | --- | --- | ---| 
+| Crunchyroll | `--absolute ` | `boolean` | `No`| `NaN` | `NaN` |
+
+Use absolute numbers for the episode. If not set, it will use the default index numbers
 #### `--movie-listing`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
 | Crunchyroll | `--movie-listing ${ID}` | `string` | `No`| `--flm` | `NaN` |
 
 Get video list by Movie Listing ID
+#### `--show-raw`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
+| --- | --- | --- | --- | --- | ---| 
+| Crunchyroll | `--show-raw ${ID}` | `string` | `No`| `--sraw` | `NaN` |
+
+Get Raw Show data
+#### `--season-raw`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
+| --- | --- | --- | --- | --- | ---| 
+| Crunchyroll | `--season-raw ${ID}` | `string` | `No`| `--seraw` | `NaN` |
+
+Get Raw Season data
+#### `--show-list-raw`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
+| --- | --- | --- | --- | --- | ---| 
+| Crunchyroll | `--show-list-raw ` | `boolean` | `No`| `--slraw` | `NaN` |
+
+Get Raw Show list data
 #### `--series`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
@@ -147,7 +171,6 @@ This will speed up the download speed, if multiple languages are selected.
 | Crunchyroll, AnimationDigitalNetwork | `--chapters ` | `boolean` | `No`| `NaN` | `true`| `chapters: ` |
 
 Will fetch the chapters and add them into the final video.
-Currently only works with mkvmerge.
 #### `--crapi`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
@@ -183,9 +206,9 @@ Select specific stream
 #### `--cstream`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--cstream ${device}` | `string` | `No`| `--cs` | [`chrome`, `firefox`, `safari`, `edge`, `fallback`, `ps4`, `ps5`, `switch`, `xboxone`, `vidaa`, `samsungtv`, `lgtv`, `rokutv`, `android`, `androidt`, `iphone`, `ipad`, `vision`, `none`] | `vidaa`| `cstream: ` |
+| Crunchyroll | `--cstream ${device}` | `string` | `No`| `--cs` | [`chrome`, `firefox`, `safari`, `edge`, `fallback`, `ps4`, `ps5`, `switch`, `xboxone`, `vidaa`, `samsungtv`, `lgtv`, `rokutv`, `chromecast`, `firetv`, `androidtv`, `android`, `androidtab`, `none`] | `lgtv`| `cstream: ` |
 
-Select specific crunchy play stream by device, or disable stream with "none"
+Select a specific Crunchyroll playback endpoint by device, or disable the stream using "none". Since Crunchyroll has started rolling out their new VBR encodes, we highly recommend using a TV endpoint (e.g. vidaa, samsungtv, lgtv, rokutv, chromecast, firetv, androidtv) to access the old CBR encodes. Please note: The older encodes do not include the new 192 kbps audio, the new audio is only available with the new VBR encodes.
 #### `--hslang`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 

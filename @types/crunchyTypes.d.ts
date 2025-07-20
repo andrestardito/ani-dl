@@ -44,6 +44,7 @@ export type CrunchyDownloadOptions = {
 }
 
 export type CrunchyMultiDownload = {
+  absolute?: boolean,
   dubLang: string[],
   all?: boolean,
   but?: boolean,
