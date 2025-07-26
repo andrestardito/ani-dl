@@ -2872,7 +2872,7 @@ export default class Crunchy implements ServiceClass {
     return ret;
   }
 
-  public async parseSeriesById(id: string) {
+  public async parseSeriesById(id: string, locale: string = "es-419") {
     if(!this.cmsToken.cms){
       throw new Error('[ERROR] Authentication required!');
     }
@@ -2886,7 +2886,7 @@ export default class Crunchy implements ServiceClass {
     };
 
     // seasons list
-    const seriesSeasonListReq = await this.req.getData(`${api.cms}/series/${id}/seasons?force_locale=&preferred_audio_language=ja-JP&locale=${this.locale}`, AuthHeaders);
+    const seriesSeasonListReq = await this.req.getData(`${api.cms}/series/${id}/seasons?force_locale=&preferred_audio_language=ja-JP&locale=${locale || this.locale}`, AuthHeaders);
     if(!seriesSeasonListReq.ok || !seriesSeasonListReq.res){
       throw new Error('[ERROR] Series Request FAILED!');
     }
@@ -3232,12 +3232,24 @@ export default class Crunchy implements ServiceClass {
    * @returns la lista de temporadas de la serie, sin los episodios.
    */
   public async getSeasons(serieId: string, dubLang: string = "jpn") {
-    const serieSearch = await this.parseSeriesById(serieId);
+    const language = this.getLanguage(dubLang);
+
+    const serieSearch = await this.parseSeriesById(serieId, language.cr_locale);
     if (!serieSearch) {
       throw new Error("No se pudo parsear la serie: " + serieId);
     }
 
     return this.filterSeasons(serieSearch, dubLang);
+  }
+
+  /** Obtiene el lenguaje en base a su code.
+   * 
+   * @param langCode code del lenguaje.
+   * 
+   * @returns el LanguageItem asociado al code.
+   */
+  private getLanguage(langCode: string) : langsData.LanguageItem {
+    return langsData.languages.find(a => a.code == langCode) as langsData.LanguageItem;
   }
 
   /** Filtra la lista de temporadas segun el lenguaje de audio japones.
@@ -3252,7 +3264,7 @@ export default class Crunchy implements ServiceClass {
    */
   private filterSeasons (seasonsList: SeriesSearch, dubLang: string = "jpn") : Record<string, Record<string, SeriesSearchItem>> {
     const ret: Record<string, Record<string, SeriesSearchItem>> = {};
-    const language = langsData.languages.find(a => a.code == dubLang) as langsData.LanguageItem;
+    const language = this.getLanguage(dubLang);
 
     for (const item of seasonsList.data) {
       // Si está subtitulado y no tiene doblaje, es porque el lenguaje es nativo, es decir japones.
