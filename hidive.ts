@@ -151,7 +151,7 @@ export default class Hidive implements ServiceClass {
     };
     let apiReq = await this.req.getData(options.url, apiReqOpts);
     if(!apiReq.ok || !apiReq.res){
-      if (apiReq.error && apiReq.error.res?.status == 401) {
+      if ((apiReq.error && apiReq.error.res?.status == 401) || (apiReq.res && apiReq.res.status == 401)) {
         console.warn('Token expired, refreshing token and retrying.');
         if (await this.refreshToken()) {
           if (authType == 'other') {
@@ -655,7 +655,7 @@ export default class Hidive implements ServiceClass {
     const subsMargin = 0;
     const chosenFontSize = options.originalFontSize ? undefined : options.fontSize;
     let encryptionKeys: KeyContainer[] = [];
-    if (!canDecrypt) {
+    if (!canDecrypt && (!options.novids || !options.noaudio)) {
       console.error('No valid Widevine or PlayReady CDM detected. Please ensure a supported and functional CDM is installed.');
       return undefined;
     }
@@ -663,7 +663,7 @@ export default class Hidive implements ServiceClass {
     if (!this.cfg.bin.ffmpeg) 
       this.cfg.bin = await yamlCfg.loadBinCfg();
 
-    if (!this.cfg.bin.mp4decrypt && !this.cfg.bin.shaka) {
+    if (!this.cfg.bin.mp4decrypt && !this.cfg.bin.shaka && (!options.novids || !options.noaudio)) {
       console.error('Neither Shaka nor MP4Decrypt found. Please ensure at least one of them is installed.');
       return undefined;
     }
@@ -760,8 +760,19 @@ export default class Hidive implements ServiceClass {
       }
     }
     if (chosenAudios.length == 0) {
-      console.error(`Chosen audio language(s) does not exist for episode ${selectedEpisode.episodeInformation.episodeNumber}`);
-      return undefined;
+      console.warn(`Chosen audio language(s) does not exist for episode ${selectedEpisode.episodeInformation.episodeNumber}, falling back to first available audio`);
+      if (audios.length > 0) {
+        let chosenAudioQuality = options.q === 0 ? audios.length : options.q;
+        if(chosenAudioQuality > audios.length) {
+          chosenAudioQuality = audios.length;
+        }
+        chosenAudioQuality--;
+        chosenAudios.push(audios[chosenAudioQuality]);
+        console.info(`Using audio track: ${audios[chosenAudioQuality].language.code || 'unknown'}`);
+      } else {
+        console.error(`No audio tracks available for episode ${selectedEpisode.episodeInformation.episodeNumber}`);
+        return undefined;
+      }
     }
 
     const fileName = parseFileName(options.fileName, variables, options.numbers, options.override).join(path.sep);
