@@ -3026,7 +3026,7 @@ export default class Crunchy implements ServiceClass {
     }).toString();
     const authReqOpts: reqModule.Params = {
       method: 'POST',
-      headers: {...api.crunchyAuthHeader, Authorization: `Basic ${await this.productionToken()}`},
+      headers: api.crunchyAuthHeader,
       body: authData
     };
     
