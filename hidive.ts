@@ -1,6 +1,6 @@
 // build-in
 import path from 'path';
-import fs from 'fs-extra';
+import fs from 'fs';
 
 // package program
 import packageJson from './package.json';
@@ -19,7 +19,7 @@ import vtt2ass from './modules/module.vtt2ass';
 import Helper from './modules/module.helper';
 
 // load req
-import { domain, api } from './modules/module.api-urls';
+import { api } from './modules/module.api-urls';
 import * as reqModule from './modules/module.fetch';
 import { DownloadedMedia } from './@types/hidiveTypes';
 import parseFileName, { Variable } from './modules/module.filename';
@@ -36,8 +36,8 @@ import { NewHidiveEpisode } from './@types/newHidiveEpisode';
 import { NewHidivePlayback, Subtitle } from './@types/newHidivePlayback';
 import { MPDParsed, parse } from './modules/module.transform-mpd';
 import { canDecrypt, getKeysWVD, cdm, getKeysPRD } from './modules/cdm';
-import { KeyContainer } from './modules/widevine/license';
 import { FetchParams } from './modules/module.fetch';
+import { KeyContainer } from 'widevine';
 
 export default class Hidive implements ServiceClass {
 	public cfg: yamlCfg.ConfigObject;
@@ -934,7 +934,7 @@ export default class Hidive implements ServiceClass {
 						} else {
 							console.info('Decryption done for video');
 							if (!options.nocleanup) {
-								fs.removeSync(`${tempTsFile}.video.enc.m4s`);
+								fs.unlinkSync(`${tempTsFile}.video.enc.m4s`);
 							}
 							fs.copyFileSync(`${tempTsFile}.video.m4s`, `${tsFile}.video.m4s`);
 							fs.unlinkSync(`${tempTsFile}.video.m4s`);
@@ -1028,7 +1028,7 @@ export default class Hidive implements ServiceClass {
 							return undefined;
 						} else {
 							if (!options.nocleanup) {
-								fs.removeSync(`${tempTsFile}.audio.enc.m4s`);
+								fs.unlinkSync(`${tempTsFile}.audio.enc.m4s`);
 							}
 							fs.copyFileSync(`${tempTsFile}.audio.m4s`, `${tsFile}.audio.m4s`);
 							fs.unlinkSync(`${tempTsFile}.audio.m4s`);

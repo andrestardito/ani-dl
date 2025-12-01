@@ -1,15 +1,15 @@
 // build-in
 import path from 'path';
-import fs from 'fs-extra';
+import fs from 'fs';
 
 // package program
 import packageJson from './package.json';
 
 // plugins
 import { console } from './modules/log';
-import m3u8 from 'm3u8-parsed';
 import streamdl, { M3U8Json } from './modules/hls-download';
 import Helper from './modules/module.helper';
+import { Parser } from 'm3u8-parser';
 
 // custom modules
 import * as fontsData from './modules/module.fontsData';
@@ -70,7 +70,7 @@ export default class Crunchy implements ServiceClass {
 	}
 
 	public checkToken(): boolean {
-		return Object.keys(this.cmsToken.cms_web ?? {}).length > 0;
+		return Object.keys(this.cmsToken.cms ?? {}).length > 0;
 	}
 
 	public async cli() {
@@ -105,7 +105,7 @@ export default class Crunchy implements ServiceClass {
 			await this.getCmsData();
 		} else if (argv.new) {
 			await this.refreshToken();
-			await this.getNewlyAdded(argv.page, argv['search-type'], argv.raw, argv.rawoutput);
+			await this.getNewlyAdded(argv.page, argv.searchType, argv.raw, argv.rawoutput);
 		} else if (argv.search && argv.search.length > 2) {
 			await this.refreshToken();
 			await this.doSearch({ ...argv, search: argv.search as string });
@@ -122,16 +122,16 @@ export default class Crunchy implements ServiceClass {
 				}
 			}
 			return true;
-		} else if (argv['movie-listing'] && argv['movie-listing'].match(/^[0-9A-Z]{9,}$/)) {
+		} else if (argv.movieListing && argv.movieListing.match(/^[0-9A-Z]{9,}$/)) {
 			await this.refreshToken();
-			await this.logMovieListingById(argv['movie-listing'] as string);
-		} else if (argv['show-raw'] && argv['show-raw'].match(/^[0-9A-Z]{9,}$/)) {
+			await this.logMovieListingById(argv.movieListing as string);
+		} else if (argv.showRaw && argv.showRaw.match(/^[0-9A-Z]{9,}$/)) {
 			await this.refreshToken();
-			await this.logShowRawById(argv['show-raw'] as string);
-		} else if (argv['season-raw'] && argv['season-raw'].match(/^[0-9A-Z]{9,}$/)) {
+			await this.logShowRawById(argv.showRaw as string);
+		} else if (argv.seasonRaw && argv.seasonRaw.match(/^[0-9A-Z]{9,}$/)) {
 			await this.refreshToken();
-			await this.logSeasonRawById(argv['season-raw'] as string);
-		} else if (argv['show-list-raw']) {
+			await this.logSeasonRawById(argv.seasonRaw as string);
+		} else if (argv.showListRaw) {
 			await this.refreshToken();
 			await this.logShowListRaw();
 		} else if (argv.s && argv.s.match(/^[0-9A-Z]{9,}$/)) {
@@ -185,7 +185,7 @@ export default class Crunchy implements ServiceClass {
 
 	public async logShowRawById(id: string) {
 		// check token
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
@@ -215,7 +215,7 @@ export default class Crunchy implements ServiceClass {
 
 	public async logSeasonRawById(id: string) {
 		// check token
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
@@ -231,16 +231,16 @@ export default class Crunchy implements ServiceClass {
 		//get episode info
 		const reqEpsListOpts = [
 			api.cms_bucket,
-			this.cmsToken.cms_web.bucket,
+			this.cmsToken.cms.bucket,
 			'/episodes?',
 			new URLSearchParams({
 				force_locale: '',
 				preferred_audio_language: 'ja-JP',
 				locale: this.locale,
 				season_id: id,
-				Policy: this.cmsToken.cms_web.policy,
-				Signature: this.cmsToken.cms_web.signature,
-				'Key-Pair-Id': this.cmsToken.cms_web.key_pair_id
+				Policy: this.cmsToken.cms.policy,
+				Signature: this.cmsToken.cms.signature,
+				'Key-Pair-Id': this.cmsToken.cms.key_pair_id
 			})
 		].join('');
 		const reqEpsList = await this.req.getData(reqEpsListOpts, AuthHeaders);
@@ -266,7 +266,7 @@ export default class Crunchy implements ServiceClass {
 
 	public async logShowListRaw() {
 		// check token
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
@@ -347,10 +347,10 @@ export default class Crunchy implements ServiceClass {
 			} else {
 				const fontFolder = path.dirname(fontLoc);
 				if (fs.existsSync(fontLoc) && fs.statSync(fontLoc).size == 0) {
-					fs.unlinkSync(fontLoc);
+					fs.rmSync(fontLoc, { recursive: true, force: true });
 				}
 				try {
-					fs.ensureDirSync(fontFolder);
+					fs.existsSync(fontFolder);
 				} catch (e) {
 					console.info('');
 				}
@@ -390,15 +390,20 @@ export default class Crunchy implements ServiceClass {
 	// }
 
 	public async doAuth(data: AuthData): Promise<AuthResponse> {
+		const basic = atob(api.basic_auth_token);
+		const client = basic.split(':');
+
 		const uuid = randomUUID();
 		const authData = new URLSearchParams({
 			username: data.username,
 			password: data.password,
 			grant_type: 'password',
 			scope: 'offline_access',
+			client_id: client[0],
+			client_secret: client[1],
 			device_id: uuid,
-			device_name: 'iPhone',
-			device_type: 'iPhone 13'
+			device_name: 'emu64xa',
+			device_type: 'ANDROIDTV'
 		}).toString();
 		const authReqOpts: FetchParams = {
 			method: 'POST',
@@ -411,6 +416,7 @@ export default class Crunchy implements ServiceClass {
 			console.error('Authentication failed!');
 			return { isOk: false, reason: new Error('Authentication failed') };
 		}
+
 		// To prevent any Cloudflare errors in the future
 		if (authReq.res.headers.get('Set-Cookie')) {
 			api.crunchyDefHeader['Cookie'] = authReq.res.headers.get('Set-Cookie') as string;
@@ -422,6 +428,7 @@ export default class Crunchy implements ServiceClass {
 			api.crunchyDefHeader['User-Agent'] = authReq.headers['User-Agent'];
 			api.crunchyAuthHeader['User-Agent'] = authReq.headers['User-Agent'];
 		}
+
 		this.token = await authReq.res.json();
 		this.token.device_id = uuid;
 		this.token.expires = new Date(Date.now() + this.token.expires_in * 1000);
@@ -432,13 +439,18 @@ export default class Crunchy implements ServiceClass {
 	}
 
 	public async doAnonymousAuth() {
+		const basic = atob(api.basic_auth_token);
+		const client = basic.split(':');
+
 		const uuid = randomUUID();
 		const authData = new URLSearchParams({
 			grant_type: 'client_id',
 			scope: 'offline_access',
+			client_id: client[0],
+			client_secret: client[1],
 			device_id: uuid,
-			device_name: 'iPhone',
-			device_type: 'iPhone 13'
+			device_name: 'emu64xa',
+			device_type: 'ANDROIDTV'
 		}).toString();
 		const authReqOpts: FetchParams = {
 			method: 'POST',
@@ -462,6 +474,7 @@ export default class Crunchy implements ServiceClass {
 			api.crunchyDefHeader['User-Agent'] = authReq.headers['User-Agent'];
 			api.crunchyAuthHeader['User-Agent'] = authReq.headers['User-Agent'];
 		}
+
 		this.token = await authReq.res.json();
 		this.token.device_id = uuid;
 		this.token.expires = new Date(Date.now() + this.token.expires_in * 1000);
@@ -473,6 +486,7 @@ export default class Crunchy implements ServiceClass {
 			console.error('No access token!');
 			return false;
 		}
+
 		const profileReqOptions = {
 			headers: {
 				...api.crunchyDefHeader,
@@ -498,15 +512,20 @@ export default class Crunchy implements ServiceClass {
 	}
 
 	public async loginWithToken(refreshToken: string) {
+		const basic = atob(api.basic_auth_token);
+		const client = basic.split(':');
+
 		const uuid = randomUUID();
 		const authData = new URLSearchParams({
 			refresh_token: this.token.refresh_token,
 			grant_type: 'refresh_token',
 			//'grant_type': 'etp_rt_cookie',
 			scope: 'offline_access',
+			client_id: client[0],
+			client_secret: client[1],
 			device_id: uuid,
-			device_name: 'iPhone',
-			device_type: 'iPhone 13'
+			device_name: 'emu64xa',
+			device_type: 'ANDROIDTV'
 		}).toString();
 		const authReqOpts: FetchParams = {
 			method: 'POST',
@@ -533,6 +552,7 @@ export default class Crunchy implements ServiceClass {
 			api.crunchyDefHeader['User-Agent'] = authReq.headers['User-Agent'];
 			api.crunchyAuthHeader['User-Agent'] = authReq.headers['User-Agent'];
 		}
+
 		this.token = await authReq.res.json();
 		this.token.device_id = uuid;
 		this.token.expires = new Date(Date.now() + this.token.expires_in * 1000);
@@ -552,17 +572,24 @@ export default class Crunchy implements ServiceClass {
 			} else {
 				//console.info('[WARN] The token has expired compleatly. I will try to refresh the token anyway, but you might have to reauth.');
 			}
+
+			const basic = atob(api.basic_auth_token);
+			const client = basic.split(':');
+
 			const uuid = this.token.device_id || randomUUID();
 			const authData = new URLSearchParams({
-				refresh_token: this.token.refresh_token,
 				grant_type: 'refresh_token',
+				refresh_token: this.token.refresh_token,
+				scope: 'offline_access',
+				client_id: client[0],
+				client_secret: client[1],
 				device_id: uuid,
-				device_name: 'iPhone',
-				device_type: 'iPhone 13'
+				device_name: 'emu64xa',
+				device_type: 'ANDROIDTV'
 			}).toString();
 			const authReqOpts: FetchParams = {
 				method: 'POST',
-				headers: { ...api.crunchyAuthHeader, 'ETP-Anonymous-ID': uuid },
+				headers: { ...api.crunchyAuthHeader },
 				body: authData,
 				useProxy: true
 			};
@@ -585,6 +612,7 @@ export default class Crunchy implements ServiceClass {
 				api.crunchyDefHeader['User-Agent'] = authReq.headers['User-Agent'];
 				api.crunchyAuthHeader['User-Agent'] = authReq.headers['User-Agent'];
 			}
+
 			this.token = await authReq.res.json();
 			this.token.device_id = uuid;
 			this.token.expires = new Date(Date.now() + this.token.expires_in * 1000);
@@ -604,8 +632,8 @@ export default class Crunchy implements ServiceClass {
 			return;
 		}
 
-		if (ifNeeded && this.cmsToken.cms_web) {
-			if (!(Date.now() >= new Date(this.cmsToken.cms_web.expires).getTime())) {
+		if (ifNeeded && this.cmsToken.cms) {
+			if (!(Date.now() >= new Date(this.cmsToken.cms.expires).getTime())) {
 				return;
 			}
 		}
@@ -622,27 +650,27 @@ export default class Crunchy implements ServiceClass {
 			return;
 		}
 		this.cmsToken = await cmsTokenReq.res.json();
-		//console.info('Your Country: %s\n', this.cmsToken.cms_web?.bucket.split('/')[1]);
+		//console.info('Your Country: %s\n', this.cmsToken.cms?.bucket.split('/')[1]);
 	}
 
 	public async getCmsData() {
 		// check token
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
 		// opts
 		const indexReqOpts = [
 			api.cms_bucket,
-			this.cmsToken.cms_web.bucket,
+			this.cmsToken.cms.bucket,
 			'/index?',
 			new URLSearchParams({
 				force_locale: '',
 				preferred_audio_language: 'ja-JP',
 				locale: this.locale,
-				Policy: this.cmsToken.cms_web.policy,
-				Signature: this.cmsToken.cms_web.signature,
-				'Key-Pair-Id': this.cmsToken.cms_web.key_pair_id
+				Policy: this.cmsToken.cms.policy,
+				Signature: this.cmsToken.cms.signature,
+				'Key-Pair-Id': this.cmsToken.cms.key_pair_id
 			})
 		].join('');
 		const indexReq = await this.req.getData(indexReqOpts, {
@@ -719,7 +747,7 @@ export default class Crunchy implements ServiceClass {
 			value: toSend
 				.map((a) => {
 					return a.items.map((a): SearchResponseItem => {
-						const images = (a.images.poster_tall ?? [[{ source: '/notFound.png' }]])[0];
+						const images = (a.images?.poster_tall ?? [[{ source: '/notFound.png' }]])[0];
 						return {
 							id: a.id,
 							image: images[Math.floor(images.length / 2)].source,
@@ -919,7 +947,7 @@ export default class Crunchy implements ServiceClass {
 		pad = pad || 0;
 		hideSeriesTitle = hideSeriesTitle !== undefined ? hideSeriesTitle : false;
 		// check token
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
@@ -962,7 +990,7 @@ export default class Crunchy implements ServiceClass {
 
 	public async logMovieListingById(id: string, pad?: number) {
 		pad = pad || 2;
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
@@ -1050,14 +1078,14 @@ export default class Crunchy implements ServiceClass {
 			await this.logObject(i, 2);
 		}
 		// calculate pages
-		const itemPad = parseInt(new URL(newlyAddedResults.__href__, domain.cr_www).searchParams.get('start') as string);
+		const itemPad = parseInt(new URL(newlyAddedResults.__href__, domain.cr_api).searchParams.get('start') as string);
 		const pageCur = itemPad > 0 ? Math.ceil(itemPad / 25) + 1 : 1;
 		const pageMax = Math.ceil(newlyAddedResults.total / 25);
 		console.info(`  Total results: ${newlyAddedResults.total} (Page: ${pageCur}/${pageMax})`);
 	}
 
 	public async getSeasonById(id: string, numbers: number, e: string | undefined, but: boolean, all: boolean): Promise<ResponseBase<CrunchyEpMeta[]>> {
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return { isOk: false, reason: new Error('Authentication required') };
 		}
@@ -1079,19 +1107,39 @@ export default class Crunchy implements ServiceClass {
 		await this.logObject(showInfo.data[0], 0);
 
 		let episodeList = { total: 0, data: [], meta: {} } as CrunchyEpisodeList;
-		//get episode info
-		const reqEpsListOpts = [
+		//get episode info CMS
+		const reqEpsCMSListOpts = [
 			api.cms_bucket,
-			this.cmsToken.cms_web.bucket,
+			this.cmsToken.cms.bucket,
 			'/episodes?',
 			new URLSearchParams({
 				force_locale: '',
 				preferred_audio_language: 'ja-JP',
 				locale: this.locale,
 				season_id: id,
-				Policy: this.cmsToken.cms_web.policy,
-				Signature: this.cmsToken.cms_web.signature,
-				'Key-Pair-Id': this.cmsToken.cms_web.key_pair_id
+				Policy: this.cmsToken.cms.policy,
+				Signature: this.cmsToken.cms.signature,
+				'Key-Pair-Id': this.cmsToken.cms.key_pair_id
+			})
+		].join('');
+		const reqEpsCMSList = await this.req.getData(reqEpsCMSListOpts, AuthHeaders);
+		if (!reqEpsCMSList.ok || !reqEpsCMSList.res) {
+			console.error('Episode List Request FAILED!');
+			return { isOk: false, reason: new Error('Episode List request failed. No more information provided.') };
+		}
+		//CrunchyEpisodeList
+		const episodeListAndroid = (await reqEpsCMSList.res.json()) as CrunchyAndroidEpisodes;
+
+		//get episode info API
+		const reqEpsListOpts = [
+			domain.cr_api,
+			'/content/v2/cms/seasons/',
+			id,
+			'/episodes?',
+			new URLSearchParams({
+				force_locale: '',
+				preferred_audio_language: 'ja-JP',
+				locale: this.locale
 			})
 		].join('');
 		const reqEpsList = await this.req.getData(reqEpsListOpts, AuthHeaders);
@@ -1100,12 +1148,22 @@ export default class Crunchy implements ServiceClass {
 			return { isOk: false, reason: new Error('Episode List request failed. No more information provided.') };
 		}
 		//CrunchyEpisodeList
-		const episodeListAndroid = (await reqEpsList.res.json()) as CrunchyAndroidEpisodes;
-		episodeList = {
-			total: episodeListAndroid.total,
-			data: episodeListAndroid.items,
-			meta: {}
-		};
+		const episodeListAPI = (await reqEpsList.res.json()) as CrunchyEpisodeList;
+
+		// if API has more items than CMS use API episodes
+		if (episodeListAPI.total > episodeListAndroid.total) {
+			episodeList = {
+				total: episodeListAPI.total,
+				data: episodeListAPI.data,
+				meta: {}
+			};
+		} else {
+			episodeList = {
+				total: episodeListAndroid.total,
+				data: episodeListAndroid.items,
+				meta: {}
+			};
+		}
 
 		const epNumList: {
 			ep: number[];
@@ -1143,7 +1201,7 @@ export default class Crunchy implements ServiceClass {
 			}
 			const selEpId = isSpecial ? 'S' + epNumList.sp.toString().padStart(epNumLen, '0') : '' + parseInt(epNum, 10).toString().padStart(epNumLen, '0');
 			// set data
-			const images = (item.images.thumbnail ?? [[{ source: '/notFound.png' }]])[0];
+			const images = (item.images?.thumbnail ?? [[{ source: '/notFound.png' }]])[0];
 			const epMeta: CrunchyEpMeta = {
 				data: [
 					{
@@ -1151,7 +1209,8 @@ export default class Crunchy implements ServiceClass {
 						versions: null,
 						lang: langsData.languages.find((a) => a.code == yargs.appArgv(this.cfg.cli).dubLang[0]),
 						isSubbed: item.is_subbed,
-						isDubbed: item.is_dubbed
+						isDubbed: item.is_dubbed,
+						durationMs: item.duration_ms ?? 0
 					}
 				],
 				seriesTitle: item.series_title,
@@ -1237,7 +1296,7 @@ export default class Crunchy implements ServiceClass {
 	}
 
 	public async getObjectById(e?: string, earlyReturn?: boolean, external_id?: boolean): Promise<ObjectInfo | Partial<CrunchyEpMeta>[] | undefined> {
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return [];
 		}
@@ -1249,7 +1308,7 @@ export default class Crunchy implements ServiceClass {
 			for (const ob of epFilter.values) {
 				const extIdReqOpts = [
 					api.cms_bucket,
-					this.cmsToken.cms_web.bucket,
+					this.cmsToken.cms.bucket,
 					'/channels/crunchyroll/objects',
 					'?',
 					new URLSearchParams({
@@ -1257,9 +1316,9 @@ export default class Crunchy implements ServiceClass {
 						preferred_audio_language: 'ja-JP',
 						locale: this.locale,
 						external_id: ob,
-						Policy: this.cmsToken.cms_web.policy,
-						Signature: this.cmsToken.cms_web.signature,
-						'Key-Pair-Id': this.cmsToken.cms_web.key_pair_id
+						Policy: this.cmsToken.cms.policy,
+						Signature: this.cmsToken.cms.signature,
+						'Key-Pair-Id': this.cmsToken.cms.key_pair_id
 					})
 				].join('');
 
@@ -1339,7 +1398,7 @@ export default class Crunchy implements ServiceClass {
 		if (doEpsFilter.values.length > 0) {
 			const objectReqOpts = [
 				api.cms_bucket,
-				this.cmsToken.cms_web.bucket,
+				this.cmsToken.cms.bucket,
 				'/objects/',
 				doEpsFilter.values.join(','),
 				'?',
@@ -1347,9 +1406,9 @@ export default class Crunchy implements ServiceClass {
 					force_locale: '',
 					preferred_audio_language: 'ja-JP',
 					locale: this.locale,
-					Policy: this.cmsToken.cms_web.policy,
-					Signature: this.cmsToken.cms_web.signature,
-					'Key-Pair-Id': this.cmsToken.cms_web.key_pair_id
+					Policy: this.cmsToken.cms.policy,
+					Signature: this.cmsToken.cms.signature,
+					'Key-Pair-Id': this.cmsToken.cms.key_pair_id
 				})
 			].join('');
 			const objectReq = await this.req.getData(objectReqOpts, AuthHeaders);
@@ -1393,7 +1452,8 @@ export default class Crunchy implements ServiceClass {
 						mediaId: 'E:' + item.id,
 						versions: item.episode_metadata.versions,
 						isSubbed: item.episode_metadata.is_subbed,
-						isDubbed: item.episode_metadata.is_dubbed
+						isDubbed: item.episode_metadata.is_dubbed,
+						durationMs: item.episode_metadata.duration_ms ?? 0
 					}
 				];
 				epMeta.seriesTitle = item.episode_metadata.series_title;
@@ -1407,7 +1467,8 @@ export default class Crunchy implements ServiceClass {
 					{
 						mediaId: 'M:' + item.id,
 						isSubbed: item.movie_listing_metadata.is_subbed,
-						isDubbed: item.movie_listing_metadata.is_dubbed
+						isDubbed: item.movie_listing_metadata.is_dubbed,
+						durationMs: item.movie_listing_metadata.duration_ms ?? 0
 					}
 				];
 				epMeta.seriesTitle = item.title;
@@ -1420,7 +1481,8 @@ export default class Crunchy implements ServiceClass {
 					{
 						mediaId: 'M:' + item.id,
 						isSubbed: item.movie_metadata.is_subbed,
-						isDubbed: item.movie_metadata.is_dubbed
+						isDubbed: item.movie_metadata.is_dubbed,
+						durationMs: item.movie_metadata.duration_ms ?? 0
 					}
 				];
 				epMeta.season = 0;
@@ -1455,7 +1517,8 @@ export default class Crunchy implements ServiceClass {
 				{
 					mediaId: 'V:' + item.id,
 					isSubbed: false,
-					isDubbed: false
+					isDubbed: false,
+					durationMs: item.durationMs ?? 0
 				}
 			];
 			epMeta.season = 0;
@@ -1504,7 +1567,7 @@ export default class Crunchy implements ServiceClass {
 		  }
 		| undefined
 	> {
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
@@ -1689,7 +1752,7 @@ export default class Crunchy implements ServiceClass {
 				const me = await this.req.getData(api.me, AuthHeaders);
 				if (me.ok && me.res) {
 					const data_me = await me.res.json();
-					const benefits = await this.req.getData(`https://www.crunchyroll.com/subs/v1/subscriptions/${data_me.external_id}/benefits`, AuthHeaders);
+					const benefits = await this.req.getData(`https://beta-api.crunchyroll.com/subs/v1/subscriptions/${data_me.external_id}/benefits`, AuthHeaders);
 					if (benefits.ok && benefits.res) {
 						const data_benefits = (await benefits.res.json()) as { items: { benefit: string }[] };
 						if (data_benefits?.items && !data_benefits.items.find((i) => i.benefit === 'offline_viewing')) {
@@ -1719,20 +1782,28 @@ export default class Crunchy implements ServiceClass {
 				);
 			}
 
+			// Disable CBR bypass for Music Videos since it does not work
+			if ((currentVersion ? currentVersion.guid : currentMediaId).startsWith('MV')) {
+				isDLVideoBypass = false;
+				isDLAudioBypass = false;
+				options.vstream = 'androidtv';
+				options.astream = 'androidtv';
+			}
+
 			if (options.tsd) {
 				console.warn('Total Session Death Active');
 				const activeStreamsReq = await this.req.getData(api.streaming_sessions, AuthHeaders);
 				if (activeStreamsReq.ok && activeStreamsReq.res) {
 					const data = await activeStreamsReq.res.json();
 					for (const s of data.items) {
-						await this.req.getData(`https://www.crunchyroll.com/playback/v1/token/${s.contentId}/${s.token}`, { ...{ method: 'DELETE' }, ...AuthHeaders });
+						await this.req.getData(`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${s.contentId}/${s.token}`, { ...{ method: 'DELETE' }, ...AuthHeaders });
 					}
 					console.warn(`Killed ${data.items?.length ?? 0} Sessions`);
 				}
 			}
 
 			const videoPlaybackReq = await this.req.getData(
-				`https://www.crunchyroll.com/playback/v3/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyVideoPlayStreams['androidtv']}/play?queue=0`,
+				`https://cr-play-service.prd.crunchyrollsvc.com/v3/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyVideoPlayStreams['androidtv']}/play?queue=0`,
 				AuthHeaders
 			);
 			if (!videoPlaybackReq.ok || !videoPlaybackReq.res) {
@@ -1749,7 +1820,7 @@ export default class Crunchy implements ServiceClass {
 				}
 				if (isDLVideoBypass) {
 					const videoDLReq = await this.req.getData(
-						`https://www.crunchyroll.com/playback/v3/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyVideoPlayStreams[options.vstream]}/download`,
+						`https://cr-play-service.prd.crunchyrollsvc.com/v3/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyVideoPlayStreams[options.vstream]}/download`,
 						AuthHeaders
 					);
 					if (videoDLReq.ok && videoDLReq.res) {
@@ -1786,7 +1857,7 @@ export default class Crunchy implements ServiceClass {
 
 			if (!options.cstream && options.vstream !== options.astream && videoStream) {
 				const audioPlaybackReq = await this.req.getData(
-					`https://www.crunchyroll.com/playback/v3/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyAudioPlayStreams[options.astream]}/${isDLAudioBypass ? 'download' : 'play?queue=1'}`,
+					`https://cr-play-service.prd.crunchyrollsvc.com/v3/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyAudioPlayStreams[options.astream]}/${isDLAudioBypass ? 'download' : 'play?queue=1'}`,
 					AuthHeaders
 				);
 				if (!audioPlaybackReq.ok || !audioPlaybackReq.res) {
@@ -2020,16 +2091,22 @@ export default class Crunchy implements ServiceClass {
 			if (options.novids && options.noaudio) {
 				if (videoStream) {
 					await this.refreshToken(true, true);
-					await this.req.getData(`https://www.crunchyroll.com/playback/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${videoStream.token}`, {
-						...{ method: 'DELETE' },
-						...AuthHeaders
-					});
+					await this.req.getData(
+						`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${videoStream.token}`,
+						{
+							...{ method: 'DELETE' },
+							...AuthHeaders
+						}
+					);
 				}
 				if (audioStream && videoStream?.token !== audioStream.token) {
-					await this.req.getData(`https://www.crunchyroll.com/playback/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${audioStream.token}`, {
-						...{ method: 'DELETE' },
-						...AuthHeaders
-					});
+					await this.req.getData(
+						`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${audioStream.token}`,
+						{
+							...{ method: 'DELETE' },
+							...AuthHeaders
+						}
+					);
 				}
 			}
 
@@ -2151,13 +2228,13 @@ export default class Crunchy implements ServiceClass {
 							await this.refreshToken(true, true);
 							if (videoStream) {
 								await this.req.getData(
-									`https://www.crunchyroll.com/playback/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${videoStream.token}/keepAlive?playhead=1`,
+									`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${videoStream.token}/keepAlive?playhead=1`,
 									{ ...{ method: 'PATCH' }, ...AuthHeaders }
 								);
 							}
 							if (audioStream && videoStream?.token !== audioStream.token) {
 								await this.req.getData(
-									`https://www.crunchyroll.com/playback/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${audioStream.token}/keepAlive?playhead=1`,
+									`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${audioStream.token}/keepAlive?playhead=1`,
 									{ ...{ method: 'PATCH' }, ...AuthHeaders }
 								);
 							}
@@ -2229,16 +2306,22 @@ export default class Crunchy implements ServiceClass {
 
 						if (videoStream) {
 							await this.refreshToken(true, true);
-							await this.req.getData(`https://www.crunchyroll.com/playback/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${videoStream.token}`, {
-								...{ method: 'DELETE' },
-								...AuthHeaders
-							});
+							await this.req.getData(
+								`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${videoStream.token}`,
+								{
+									...{ method: 'DELETE' },
+									...AuthHeaders
+								}
+							);
 						}
 						if (audioStream && videoStream?.token !== audioStream.token) {
-							await this.req.getData(`https://www.crunchyroll.com/playback/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${audioStream.token}`, {
-								...{ method: 'DELETE' },
-								...AuthHeaders
-							});
+							await this.req.getData(
+								`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${audioStream.token}`,
+								{
+									...{ method: 'DELETE' },
+									...AuthHeaders
+								}
+							);
 						}
 
 						let [audioDownloaded, videoDownloaded] = [false, false];
@@ -2371,7 +2454,7 @@ export default class Crunchy implements ServiceClass {
 									} else {
 										console.info('Decryption done for video');
 										if (!options.nocleanup) {
-											fs.removeSync(`${tempTsFile}.video.enc.m4s`);
+											fs.unlinkSync(`${tempTsFile}.video.enc.m4s`);
 										}
 										fs.copyFileSync(`${tempTsFile}.video.m4s`, `${tsFile}.video.m4s`);
 										fs.unlinkSync(`${tempTsFile}.video.m4s`);
@@ -2401,7 +2484,7 @@ export default class Crunchy implements ServiceClass {
 										return undefined;
 									} else {
 										if (!options.nocleanup) {
-											fs.removeSync(`${tempTsFile}.audio.enc.m4s`);
+											fs.unlinkSync(`${tempTsFile}.audio.enc.m4s`);
 										}
 										fs.copyFileSync(`${tempTsFile}.audio.m4s`, `${tsFile}.audio.m4s`);
 										fs.unlinkSync(`${tempTsFile}.audio.m4s`);
@@ -2438,22 +2521,31 @@ export default class Crunchy implements ServiceClass {
 							}
 						}
 					} else if (!options.novids) {
-						const streamPlaylists = m3u8(vstreamPlaylistBody);
+						// Init parser
+						const parser = new Parser();
+
+						// Parse M3U8
+						parser.push(vstreamPlaylistBody);
+						parser.end();
+
+						const streamPlaylists = parser.manifest;
+						if (!streamPlaylists) throw Error('Failed to parse M3U8');
+
 						const plServerList: string[] = [],
 							plStreams: Record<string, Record<string, string>> = {},
 							plQuality: {
 								str: string;
 								dim: string;
-								CODECS: string;
-								RESOLUTION: {
-									width: number;
-									height: number;
+								CODECS?: string;
+								RESOLUTION?: {
+									width?: number;
+									height?: number;
 								};
 							}[] = [];
-						for (const pl of streamPlaylists.playlists) {
+						for (const pl of streamPlaylists.playlists ?? []) {
 							// set quality
 							const plResolution = pl.attributes.RESOLUTION;
-							const plResolutionText = `${plResolution.width}x${plResolution.height}`;
+							const plResolutionText = `${plResolution?.width}x${plResolution?.height}`;
 							// set codecs
 							const plCodecs = pl.attributes.CODECS;
 							// parse uri
@@ -2480,7 +2572,7 @@ export default class Crunchy implements ServiceClass {
 								plStreams[plServer][plResolutionText] = pl.uri;
 							}
 							// set plQualityStr
-							const plBandwidth = Math.round(pl.attributes.BANDWIDTH / 1024);
+							const plBandwidth = Math.round((pl.attributes?.BANDWIDTH ?? 0) / 1024);
 							const qualityStrAdd = `${plResolutionText} (${plBandwidth}KiB/s)`;
 							const qualityStrRegx = new RegExp(qualityStrAdd.replace(/([:()/])/g, '\\$1'), 'm');
 							const qualityStrMatch = !plQuality
@@ -2527,12 +2619,14 @@ export default class Crunchy implements ServiceClass {
 								{
 									name: 'height',
 									type: 'number',
-									replaceWith: quality === 0 ? (plQuality[plQuality.length - 1].RESOLUTION.height as number) : plQuality[quality - 1].RESOLUTION.height
+									replaceWith:
+										quality === 0 ? (plQuality[plQuality.length - 1].RESOLUTION?.height as number) : (plQuality[quality - 1].RESOLUTION?.height as number)
 								},
 								{
 									name: 'width',
 									type: 'number',
-									replaceWith: quality === 0 ? (plQuality[plQuality.length - 1].RESOLUTION.width as number) : plQuality[quality - 1].RESOLUTION.width
+									replaceWith:
+										quality === 0 ? (plQuality[plQuality.length - 1].RESOLUTION?.width as number) : (plQuality[quality - 1].RESOLUTION?.width as number)
 								}
 							);
 							const lang = langsData.languages.find((a) => a.code === vcurStream?.audio_lang);
@@ -2557,19 +2651,28 @@ export default class Crunchy implements ServiceClass {
 								if (videoStream) {
 									await this.refreshToken(true, true);
 									await this.req.getData(
-										`https://www.crunchyroll.com/playback/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${videoStream.token}`,
+										`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${videoStream.token}`,
 										{ ...{ method: 'DELETE' }, ...AuthHeaders }
 									);
 								}
 								if (audioStream && videoStream?.token !== audioStream.token) {
 									await this.req.getData(
-										`https://www.crunchyroll.com/playback/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${audioStream.token}`,
+										`https://cr-play-service.prd.crunchyrollsvc.com/v1/token/${currentVersion ? currentVersion.guid : currentMediaId}/${audioStream.token}`,
 										{ ...{ method: 'DELETE' }, ...AuthHeaders }
 									);
 								}
 
 								const chunkPageBody = await chunkPage.res.text();
-								const chunkPlaylist = m3u8(chunkPageBody);
+								// Init parser
+								const parser = new Parser();
+
+								// Parse M3U8
+								parser.push(chunkPageBody);
+								parser.end();
+
+								const chunkPlaylist = parser.manifest;
+								if (!chunkPlaylist) throw Error('Failed to parse M3U8');
+
 								const totalParts = chunkPlaylist.segments.length;
 								const mathParts = Math.ceil(totalParts / options.partsize);
 								const mathMsg = `(${mathParts}*${options.partsize})`;
@@ -2725,18 +2828,20 @@ export default class Crunchy implements ServiceClass {
 							});
 							if (subsAssReq.ok && subsAssReq.res) {
 								let sBody = await subsAssReq.res.text();
-								if (subsItem.format == 'vtt') {
+
+								if (subsItem.format === 'vtt') {
 									if (!options.noASSConv) {
 										const chosenFontSize = options.originalFontSize ? undefined : options.fontSize;
 										if (!options.originalFontSize) sBody = sBody.replace(/( font-size:.+?;)/g, '').replace(/(font-size:.+?;)/g, '');
 										sBody = vtt2ass(undefined, chosenFontSize, sBody, '', undefined, options.fontName);
-										sxData.fonts = fontsData.assFonts(sBody) as Font[];
 										sxData.file = sxData.file.replace('.vtt', '.ass');
 									} else {
 										// Yeah, whatever
 										sxData.fonts = [];
 									}
-								} else {
+								}
+
+								if (!options.noASSConv || subsItem.format !== 'vtt') {
 									// Extract PlayRes
 									const mX = sBody.match(/^PlayResX:\s*(\d+)/m);
 									const mY = sBody.match(/^PlayResY:\s*(\d+)/m);
@@ -2878,6 +2983,45 @@ export default class Crunchy implements ServiceClass {
 
 										// Remove YCbCr
 										sBody = sBody.replace(/^[ \t]*YCbCr Matrix:\s*.*\r?\n?/m, '');
+
+										// Make sure no Dialogue timestamp goes over video length
+										if (options.subtitleTimestampFix && mMeta?.durationMs && mMeta.durationMs > 15000) {
+											const lines = sBody.split('\n');
+											const newLines: string[] = [];
+											const durationS = mMeta.durationMs / 1000;
+
+											const toSec = (t: string) => {
+												const [h, m, s] = t.replace(',', '.').split(/[:.]/).map(Number);
+												return h * 3600 + m * 60 + s;
+											};
+
+											for (let line of lines) {
+												if (line.startsWith('Dialogue:')) {
+													const parts = line.split(',');
+													const start = parts[1];
+													const end = parts[2];
+
+													const s = toSec(start);
+													const e = toSec(end);
+
+													// If start time is longer than durationS skip the subtitle line completely
+													if (s > durationS) continue;
+
+													// If only end time is longer than durationS short it down
+													if (e > durationS) {
+														const h = String(Math.floor(durationS / 3600));
+														const m = String(Math.floor((durationS % 3600) / 60)).padStart(2, '0');
+														const sec = (durationS % 60).toFixed(2).padStart(5, '0');
+														parts[2] = `${h}:${m}:${sec}`;
+														line = parts.join(',');
+													}
+												}
+
+												newLines.push(line);
+											}
+
+											sBody = newLines.join('\n');
+										}
 
 										// Force outline thickness for ru-RU: if the 17th field (Outline) equals 2.6 → 2
 										if (langItem.cr_locale === 'ru-RU') {
@@ -3124,7 +3268,7 @@ export default class Crunchy implements ServiceClass {
 		return {
 			data: sortedEpisodes,
 			list: Object.entries(sortedEpisodes).map(([key, value]) => {
-				const images = (value.items[0].images.thumbnail ?? [[{ source: '/notFound.png' }]])[0];
+				const images = (value.items[0].images?.thumbnail ?? [[{ source: '/notFound.png' }]])[0];
 				const seconds = Math.floor(value.items[0].duration_ms / 1000);
 				let epNum;
 				if (data?.absolute) {
@@ -3223,14 +3367,15 @@ export default class Crunchy implements ServiceClass {
 				}
 
 				// set data
-				const images = (item.images.thumbnail ?? [[{ source: '/notFound.png' }]])[0];
+				const images = (item.images?.thumbnail ?? [[{ source: '/notFound.png' }]])[0];
 				const epMeta: CrunchyEpMeta = {
 					data: [
 						{
 							mediaId: item.id,
 							versions: item.versions,
 							isSubbed: item.is_subbed,
-							isDubbed: item.is_dubbed
+							isDubbed: item.is_dubbed,
+							durationMs: item.duration_ms ?? 0
 						}
 					],
 					seriesTitle: itemE.items.find((a) => !a.series_title.match(/\(\w+ Dub\)/))?.series_title ?? itemE.items[0].series_title.replace(/\(\w+ Dub\)/g, '').trimEnd(),
@@ -3312,8 +3457,9 @@ export default class Crunchy implements ServiceClass {
 		return ret;
 	}
 
-	public async parseSeriesById(id: string) {
-		if (!this.cmsToken.cms_web) {
+	// El locale lo agregue yo
+	public async parseSeriesById(id: string, locale: string = this.locale) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
@@ -3327,7 +3473,7 @@ export default class Crunchy implements ServiceClass {
 
 		// seasons list
 		const seriesSeasonListReq = await this.req.getData(
-			`${api.content_cms}/series/${id}/seasons?force_locale=&preferred_audio_language=ja-JP&locale=${this.locale}`,
+			`${api.content_cms}/series/${id}/seasons?force_locale=&preferred_audio_language=ja-JP&locale=${locale}`,
 			AuthHeaders
 		);
 		if (!seriesSeasonListReq.ok || !seriesSeasonListReq.res) {
@@ -3344,7 +3490,7 @@ export default class Crunchy implements ServiceClass {
 	}
 
 	public async getSeasonDataById(item: SeriesSearchItem, log = false) {
-		if (!this.cmsToken.cms_web) {
+		if (!this.cmsToken.cms) {
 			console.error('Authentication required!');
 			return;
 		}
@@ -3371,18 +3517,39 @@ export default class Crunchy implements ServiceClass {
 			const original_id = s.versions?.find((v: { original: boolean }) => v.original)?.guid;
 			const id = original_id ? original_id : s.id;
 
-			const reqEpsListOpts = [
+			//get episode info CMS
+			const reqEpsCMSListOpts = [
 				api.cms_bucket,
-				this.cmsToken.cms_web.bucket,
+				this.cmsToken.cms.bucket,
 				'/episodes?',
 				new URLSearchParams({
 					force_locale: '',
 					preferred_audio_language: 'ja-JP',
 					locale: this.locale,
 					season_id: id,
-					Policy: this.cmsToken.cms_web.policy,
-					Signature: this.cmsToken.cms_web.signature,
-					'Key-Pair-Id': this.cmsToken.cms_web.key_pair_id
+					Policy: this.cmsToken.cms.policy,
+					Signature: this.cmsToken.cms.signature,
+					'Key-Pair-Id': this.cmsToken.cms.key_pair_id
+				})
+			].join('');
+			const reqEpsCMSList = await this.req.getData(reqEpsCMSListOpts, AuthHeaders);
+			if (!reqEpsCMSList.ok || !reqEpsCMSList.res) {
+				console.error('Episode List Request FAILED!');
+				return;
+			}
+			//CrunchyEpisodeList
+			const episodeListAndroid = (await reqEpsCMSList.res.json()) as CrunchyAndroidEpisodes;
+
+			//get episode info API
+			const reqEpsListOpts = [
+				domain.cr_api,
+				'/content/v2/cms/seasons/',
+				id,
+				'/episodes?',
+				new URLSearchParams({
+					force_locale: '',
+					preferred_audio_language: 'ja-JP',
+					locale: this.locale
 				})
 			].join('');
 			const reqEpsList = await this.req.getData(reqEpsListOpts, AuthHeaders);
@@ -3390,13 +3557,23 @@ export default class Crunchy implements ServiceClass {
 				console.error('Episode List Request FAILED!');
 				return;
 			}
+			//CrunchyEpisodeList
+			const episodeListAPI = (await reqEpsList.res.json()) as CrunchyEpisodeList;
 
-			const episodeListAndroid = (await reqEpsList.res.json()) as CrunchyAndroidEpisodes;
-			episodeList = {
-				total: episodeList.total + episodeListAndroid.total,
-				data: [...episodeList.data, ...episodeListAndroid.items],
-				meta: {}
-			};
+			// if API has more items than CMS use API episodes
+			if (episodeListAPI.total > episodeListAndroid.total) {
+				episodeList = {
+					total: episodeList.total + episodeListAPI.total,
+					data: [...episodeList.data, ...episodeListAPI.data],
+					meta: {}
+				};
+			} else {
+				episodeList = {
+					total: episodeList.total + episodeListAndroid.total,
+					data: [...episodeList.data, ...episodeListAndroid.items],
+					meta: {}
+				};
+			}
 		}
 
 		if (episodeList.total < 1) {
@@ -3419,17 +3596,21 @@ export default class Crunchy implements ServiceClass {
    * o un error en caso de no tener exito.
    */
   public async login(username: string, password: string) : Promise<object> {
-    const uuid = randomUUID();
+    const basic = atob(api.basic_auth_token);
+		const client = basic.split(':');
 
-    const authData = new URLSearchParams({
-      'username': username,
-      'password': password,
-      'grant_type': 'password',
-      'scope': 'offline_access',
-      'device_id': uuid,
-      'device_name': 'iPhone',
-      'device_type': 'iPhone 13'
-    }).toString();
+		const uuid = randomUUID();
+		const authData = new URLSearchParams({
+			username: username,
+			password: password,
+			grant_type: 'password',
+			scope: 'offline_access',
+			client_id: client[0],
+			client_secret: client[1],
+			device_id: uuid,
+			device_name: 'emu64xa',
+			device_type: 'ANDROIDTV'
+		}).toString();
     const authReqOpts: FetchParams = {
 		method: 'POST',
 		headers: { ...api.crunchyAuthHeader, 'ETP-Anonymous-ID': uuid },
@@ -3803,7 +3984,7 @@ export default class Crunchy implements ServiceClass {
   }
 
   public async getEpisodesBySeason(season: SeriesSearchItem, log = false) {
-    if(!this.cmsToken.cms_web){
+    if(!this.cmsToken.cms){
       console.log('[ERROR] Authentication required!');
       return;
     }
@@ -3828,13 +4009,13 @@ export default class Crunchy implements ServiceClass {
     //get episode info
     const reqEpsListOpts = [
       api.cms_bucket,
-      this.cmsToken.cms_web.bucket,
+      this.cmsToken.cms.bucket,
       '/episodes?',
       new URLSearchParams({
         'season_id': season.id,
-        'Policy': this.cmsToken.cms_web.policy,
-        'Signature': this.cmsToken.cms_web.signature,
-        'Key-Pair-Id': this.cmsToken.cms_web.key_pair_id,
+        'Policy': this.cmsToken.cms.policy,
+        'Signature': this.cmsToken.cms.signature,
+        'Key-Pair-Id': this.cmsToken.cms.key_pair_id,
         "preferred_audio_language": "ja-JP",
         "locale": this.locale
       }),

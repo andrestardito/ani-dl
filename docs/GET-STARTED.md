@@ -1,4 +1,4 @@
-# multi-downloader-nx (v5.6.1)
+# multi-downloader-nx (v5.6.5)
 
 If you find any bugs in this documentation or in the program itself please report it [over on GitHub](https://github.com/anidl/multi-downloader-nx/issues).
 
@@ -39,7 +39,7 @@ This tool is not responsible for your actions; please make an informed decision 
 The dependencies for this application are:
 - [ffmpeg](https://www.videohelp.com/software/ffmpeg)
 - [MKVToolNix](https://www.videohelp.com/software/MKVToolNix)
-- Either [Bento4-SDK (mp4decrypt)](https://www.bento4.com/downloads/) or [shaka-packager](https://github.com/shaka-project/shaka-packager/releases)
+- Either [Bento4-SDK (mp4decrypt)](https://www.bento4.com/downloads/) or [shaka-packager](https://github.com/stratumadev/shaka-packager/releases/latest)
 
 For ffmpeg, i chose this option from the website: \
 ![ffmpeg download](./imgs/ffmpeg.png)
@@ -141,25 +141,32 @@ You have now completed the dependencies installation!
 
 ### Widevine
 
-When you dump your CDM key, you will usually get 2 files. One ending in `.bin` and the other in `.pem`. \
-All you need to do is place both files in the `widevine` folder, which is in the same directory you opened `aniDL.exe` from. \
-It will detect what each file is based on the file contents.
-
-If you do want to name them though (optional):
-- The `.bin` file should be named `device_client_id_blob.bin` or `client_id.bin`
-- The `.pem` file should be named `device_private_key.pem` or `private_key.pem`
-
-Again, the renaming is totally optional. Just make sure both files are in the `widevine` folder.
+If you have a Widevine CDM key dump, its either going to be a single `.wvd` file or a pair of `.bin` and `.pem` files. \
+In any case, multi-downloader-nx supports both formats. Place them in the `widevine` folder and you are good to go.
 
 ### Playready
 
 If you have a Playready CDM key dump, you just need to make sure:
-1. Its provisioned as a V3 Device by [pyplayready](https://github.com/ready-dl/pyplayready).
-2. Security level is either SL2000 or SL3000
-3. Make sure you are using the latest version of shaka-packager from Stratuma, as he has patched it to work with multi-downloader-nx.\
+1. Security level is either SL2000 or SL3000
+2. Make sure you are using the latest version of shaka-packager from Stratuma, as he has patched it to work with multi-downloader-nx.\
    You can find his releases [here](https://github.com/stratumadev/shaka-packager/releases/latest)
 
-After you have confirmed the above, place the file(s) in the `playready` folder, which is in the same directory you opened `aniDL.exe` from.
+File type does not matter, as multi-downloader-nx supports both `.prd` device files and the `bgroupcert.dat` and `zgpriv.dat` blobs. \
+`.prd` files can be placed into the `playready` folder with whatever name it has.
+
+But if you are using the 2 `.dat` blob files, you need to rename them like so:
+- `.dat` file that is 1.xx KiB -> `bgroupcert.dat`
+- `.dat` file that is 32 bytes -> `zgpriv.dat`
+
+Output form [mediainfo](https://mediaarea.net/en/MediaInfo) can help you identify which file is which.
+```
+bgroupcert.dat
+1.26 KiB
+
+zgpriv.dat
+32.0 Bytes
+```
+Keep in mind that the `bgroupcert.dat` may not always be exactly 1.26 KiB but it should be in the KiB range, while the `zgpriv.dat` will always be 32 bytes.
 
 ## Installation
 

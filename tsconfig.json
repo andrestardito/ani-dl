@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
 		"target": "ES2020",
-		"module": "commonjs",
+		"module": "CommonJS",
 		"outDir": "./lib",
 		"strict": true,
 		"esModuleInterop": true,
@@ -9,6 +9,7 @@
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
 		"downlevelIteration": true,
+		"removeComments": true,
 		"jsx": "react"
 	},
 	"exclude": ["./videos", "./tsc.ts", "lib/**/*", "gui/react/**/*"]

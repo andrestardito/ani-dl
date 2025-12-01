@@ -3,11 +3,11 @@ import packageJson from './package.json';
 
 // Node
 import path from 'path';
-import fs from 'fs-extra';
+import fs from 'fs';
 import crypto from 'crypto';
 
 // Plugins
-import m3u8 from 'm3u8-parsed';
+import { Parser } from 'm3u8-parser';
 
 // Modules
 import * as fontsData from './modules/module.fontsData';
@@ -18,7 +18,6 @@ import * as reqModule from './modules/module.fetch';
 import Merger, { Font, MergerInput, SubtitleInput } from './modules/module.merger';
 import streamdl from './modules/hls-download';
 import { console } from './modules/log';
-import { domain } from './modules/module.api-urls';
 import { downloaded } from './modules/module.downloadArchive';
 import parseSelect from './modules/module.parseSelect';
 import parseFileName, { Variable } from './modules/module.filename';
@@ -411,7 +410,7 @@ export default class AnimationDigitalNetwork implements ServiceClass {
 		const bin = Merger.checkMerger(this.cfg.bin, options.mp4, options.forceMuxer);
 		// collect fonts info
 		// mergers
-		let isMuxed = false;
+		let isMuxed: boolean = false;
 		if (options.syncTiming) {
 			await merger.createDelays();
 		}
@@ -601,22 +600,32 @@ export default class AnimationDigitalNetwork implements ServiceClass {
 					dlFailed = true;
 				} else {
 					const streamPlaylistBody = await streamPlaylistsReq.res.text();
-					const streamPlaylists = m3u8(streamPlaylistBody);
+
+					// Init parser
+					const parser = new Parser();
+
+					// Parse M3U8
+					parser.push(streamPlaylistBody);
+					parser.end();
+
+					const streamPlaylists = parser.manifest;
+					if (!streamPlaylists) throw Error('Failed to parse M3U8');
+
 					const plServerList: string[] = [],
 						plStreams: Record<string, Record<string, string>> = {},
 						plQuality: {
 							str: string;
 							dim: string;
-							CODECS: string;
-							RESOLUTION: {
-								width: number;
-								height: number;
+							CODECS?: string;
+							RESOLUTION?: {
+								width?: number;
+								height?: number;
 							};
 						}[] = [];
-					for (const pl of streamPlaylists.playlists) {
+					for (const pl of streamPlaylists.playlists ?? []) {
 						// set quality
 						const plResolution = pl.attributes.RESOLUTION;
-						const plResolutionText = `${plResolution.width}x${plResolution.height}`;
+						const plResolutionText = `${plResolution?.width}x${plResolution?.height}`;
 						// set codecs
 						const plCodecs = pl.attributes.CODECS;
 						// parse uri
@@ -643,7 +652,7 @@ export default class AnimationDigitalNetwork implements ServiceClass {
 							plStreams[plServer][plResolutionText] = pl.uri;
 						}
 						// set plQualityStr
-						const plBandwidth = Math.round(pl.attributes.BANDWIDTH / 1024);
+						const plBandwidth = Math.round(pl.attributes?.BANDWIDTH ?? 0 / 1024);
 						const qualityStrAdd = `${plResolutionText} (${plBandwidth}KiB/s)`;
 						const qualityStrRegx = new RegExp(qualityStrAdd.replace(/([:()/])/g, '\\$1'), 'm');
 						const qualityStrMatch = !plQuality
@@ -692,12 +701,12 @@ export default class AnimationDigitalNetwork implements ServiceClass {
 							{
 								name: 'height',
 								type: 'number',
-								replaceWith: quality === 0 ? (plQuality[plQuality.length - 1].RESOLUTION.height as number) : plQuality[quality - 1].RESOLUTION.height
+								replaceWith: quality === 0 ? (plQuality[plQuality.length - 1].RESOLUTION?.height as number) : (plQuality[quality - 1].RESOLUTION?.height as number)
 							},
 							{
 								name: 'width',
 								type: 'number',
-								replaceWith: quality === 0 ? (plQuality[plQuality.length - 1].RESOLUTION.width as number) : plQuality[quality - 1].RESOLUTION.width
+								replaceWith: quality === 0 ? (plQuality[plQuality.length - 1].RESOLUTION?.width as number) : (plQuality[quality - 1].RESOLUTION?.width as number)
 							}
 						);
 
@@ -713,7 +722,17 @@ export default class AnimationDigitalNetwork implements ServiceClass {
 							dlFailed = true;
 						} else {
 							const chunkPageBody = await chunkPage.res.text();
-							const chunkPlaylist = m3u8(chunkPageBody);
+
+							// Init parser
+							const parser = new Parser();
+
+							// Parse M3U8
+							parser.push(chunkPageBody);
+							parser.end();
+
+							const chunkPlaylist = parser.manifest;
+							if (!chunkPlaylist) throw Error('Failed to parse M3U8');
+
 							const totalParts = chunkPlaylist.segments.length;
 							const mathParts = Math.ceil(totalParts / options.partsize);
 							const mathMsg = `(${mathParts}*${options.partsize})`;

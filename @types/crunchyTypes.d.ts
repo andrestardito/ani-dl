@@ -53,6 +53,7 @@ export type CrunchyDownloadOptions = {
 	scaledBorderAndShadow: 'yes' | 'no';
 	originalScriptFix: boolean;
 	resolution?: string;
+	subtitleTimestampFix: boolean;
 };
 
 export type CrunchyMultiDownload = {
@@ -89,6 +90,7 @@ export type CrunchyEpMeta = {
 		versions?: EpisodeVersion[] | null;
 		isSubbed: boolean;
 		isDubbed: boolean;
+		durationMs: number;
 	}[];
 	seriesTitle: string;
 	seasonTitle: string;
