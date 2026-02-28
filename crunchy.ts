@@ -1675,7 +1675,7 @@ export default class Crunchy implements ServiceClass {
 
 					//Make a format more usable for the crunchy chapters
 					for (const chapter in chapterData) {
-						if (typeof chapterData[chapter] == 'object') {
+						if (chapterData[chapter] && typeof chapterData[chapter] == 'object') {
 							chapters.push(chapterData[chapter]);
 						}
 					}
@@ -2965,9 +2965,14 @@ export default class Crunchy implements ServiceClass {
 											sBody = sBody.replace(/^(PlayResY:\s*\d+)/m, `$1\nLayoutResX: ${playResX}\nLayoutResY: ${playResY}`);
 										}
 
-										// ScaleBorderAndShadow Fix
+										// ScaleBorderAndShadow Fix (True and doesn't exist)
 										if (options.scaledBorderAndShadowFix && !sBody.includes('ScaledBorderAndShadow')) {
 											sBody = sBody.replace(/^(WrapStyle:.*)$/m, `$1\nScaledBorderAndShadow: ${options.scaledBorderAndShadow}`);
+										}
+
+										// ScaleBorderAndShadow Fix (True and exists)
+										if (options.scaledBorderAndShadowFix && sBody.includes('ScaledBorderAndShadow')) {
+											sBody = sBody.replace(/ScaledBorderAndShadow:\s*(yes|no)/, `ScaledBorderAndShadow: ${options.scaledBorderAndShadow}`);
 										}
 
 										// Fix VLC wrong parsing if URL not avaiable
