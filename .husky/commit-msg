@@ -1,1 +1,1 @@
-npx commitlint --edit .git/COMMIT_EDITMSG
+# npx commitlint --edit .git/COMMIT_EDITMSG

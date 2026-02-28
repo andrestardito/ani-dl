@@ -2370,10 +2370,11 @@ export default class Crunchy implements ServiceClass {
 								dlFailed = true;
 							}
 							dlVideoOnce = true;
-							videoDownloaded = true;
+							videoDownloaded = videoDownload.ok;
 						}
 
-						if (chosenAudioSegments && !options.noaudio) {
+						// Diworl: solo descarga el audio si descargo el video, sino al pedo
+						if (chosenAudioSegments && !options.noaudio && videoDownloaded) {
 							//Download Audio (if available)
 							const totalParts = chosenAudioSegments.segments.length;
 							const mathParts = Math.ceil(totalParts / options.partsize);

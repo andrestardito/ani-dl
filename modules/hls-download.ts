@@ -173,21 +173,35 @@ class hlsDownload {
 			if (segments[0].key) {
 				initSeg.key = segments[0].key as Key;
 			}
-			try {
-				const initDl = await this.downloadPart(initSeg, 0, 0);
-				await fs.writeFile(fn, initDl.dec, { flag: 'a' });
-				await fs.writeFile(
-					`${fn}.resume`,
-					JSON.stringify({
-						completed: 0,
-						total: this.data.m3u8json.segments?.length
-					})
-				);
-				console.info('Init part downloaded.');
-			} catch (e: any) {
-				console.error(`Part init download error:\n\t${e.message}`);
-				return { ok: false, parts: this.data.parts };
+
+			// Diworl: le sume los reintentos para mejorar la tasa de exito de descarga.
+			let leftRetries = 3;
+			let isInitPartDownloaded = false;
+
+			while (leftRetries > 0) {
+				try {
+					const initDl = await this.downloadPart(initSeg, 0, 0);
+					await fs.writeFile(fn, initDl.dec, { flag: 'a' });
+					await fs.writeFile(
+						`${fn}.resume`,
+						JSON.stringify({
+							completed: 0,
+							total: this.data.m3u8json.segments?.length
+						})
+					);
+					console.info('Init part downloaded.');
+					leftRetries = 0;
+					isInitPartDownloaded = true;
+				} catch (e: any) {
+					console.error(`Part init download error:\n\t${e.message}`);
+					leftRetries--;
+					console.info(`Reintentos restantes: ${leftRetries}`);
+				}
 			}
+
+			if (!isInitPartDownloaded)
+				return { ok: false, parts: this.data.parts };
+
 		} else if (segments?.[0].map && this.data.offset === 0 && this.data.skipInit) {
 			console.warn('Skipping init part can lead to broken video!');
 		}
